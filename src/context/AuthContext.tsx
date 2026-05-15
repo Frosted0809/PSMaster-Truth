@@ -1,42 +1,99 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from '../types';
+import { UserProfile } from '../types';
+import { supabase } from '../lib/supabase';
+import { User } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string) => void;
-  logout: () => void;
+  profile: UserProfile | null;
   isLoading: boolean;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check localStorage for persistency (mock)
-    const savedUser = localStorage.getItem('psmastery_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
+    // Safety timeout to ensure app eventually renders
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 5000);
+
+    // Check active sessions and sets up listener
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await fetchProfile(session.user.id);
+        }
+      } catch (err) {
+        console.error('Auth initialization error:', err);
+      } finally {
+        setIsLoading(false);
+        clearTimeout(timer);
+      }
+    };
+
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      try {
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          await fetchProfile(session.user.id);
+        } else {
+          setProfile(null);
+        }
+      } catch (err) {
+        console.error('Auth change handling error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      clearTimeout(timer);
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const login = (email: string) => {
-    const role = email.endsWith('@admin.com') ? 'Admin' : 'Student';
-    const newUser: User = { id: Math.random().toString(36).substr(2, 9), email, role };
-    setUser(newUser);
-    localStorage.setItem('psmastery_user', JSON.stringify(newUser));
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error) throw error;
+      setProfile(data as UserProfile);
+    } catch (err) {
+      console.error('Error fetching profile:', err);
+      setProfile(null);
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('psmastery_user');
+  const signOut = async () => {
+    try {
+      setIsLoading(true);
+      await supabase.auth.signOut();
+      setUser(null);
+      setProfile(null);
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, profile, isLoading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -6,14 +6,19 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  const signOutAction = async () => {
+    await signOut();
+    setIsMenuOpen(false);
+  };
+
   const navLinks = [
     { name: 'Home', path: '/', icon: Home },
-    ...(user ? [{ name: 'My Progress', path: '/progress', icon: BookOpen }] : []),
-    ...(user?.role === 'Admin' ? [{ name: 'Admin Panel', path: '/admin', icon: Shield }] : []),
+    ...(user && profile?.is_approved ? [{ name: 'My Progress', path: '/progress', icon: BookOpen }] : []),
+    ...(profile?.role === 'admin' && profile?.is_approved ? [{ name: 'Admin Panel', path: '/admin', icon: Shield }] : []),
   ];
 
   return (
@@ -44,12 +49,14 @@ export default function Navbar() {
       <div className="flex items-center gap-4">
         {user ? (
           <div className="flex items-center gap-4">
-            <span className="hidden sm:inline-block text-xs font-semibold px-2 py-1 bg-[#FFE8BE] rounded text-[#406AAF]">
-              {user.role}
-            </span>
+            {profile && (
+              <span className="hidden sm:inline-block text-xs font-semibold px-2 py-1 bg-[#FFE8BE] rounded text-[#406AAF] uppercase">
+                {profile.role}
+              </span>
+            )}
             <button
-              onClick={logout}
-              className="text-[#2D3436]/70 hover:text-[#427AB5] transition-colors"
+              onClick={signOutAction}
+              className="hidden md:flex text-[#2D3436]/70 hover:text-[#427AB5] transition-colors"
               title="Logout"
             >
               <LogOut size={20} />
@@ -93,6 +100,16 @@ export default function Navbar() {
                 {link.name}
               </Link>
             ))}
+            
+            {user && (
+              <button
+                onClick={signOutAction}
+                className="flex items-center gap-3 text-lg font-medium p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+              >
+                <LogOut size={20} />
+                Logout
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

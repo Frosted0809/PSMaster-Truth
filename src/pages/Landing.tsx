@@ -1,16 +1,47 @@
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Play, BookOpen, Layers, Award, ArrowRight, Star } from 'lucide-react';
-import { mockLessons } from '../data/mockLessons';
+import { Play, BookOpen, Layers, Award, ArrowRight, Star, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
-import { LessonTier } from '../types';
+import { LessonTier, Lesson } from '../types';
 
 export default function Landing() {
-  const categories: { tier: LessonTier; label: string; count: number; description: string; color: string; icon: any }[] = [
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Safety timeout
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
+    const fetchLessons = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('lessons')
+          .select('*')
+          .order('order_index', { ascending: true });
+        
+        if (!error && data) {
+          setLessons(data);
+        }
+      } catch (err) {
+        console.error('Error fetching lessons:', err);
+      } finally {
+        setLoading(false);
+        clearTimeout(timer);
+      }
+    };
+
+    fetchLessons();
+    return () => clearTimeout(timer);
+  }, []);
+
+  const categories: { tier: LessonTier; label: string; description: string; color: string; icon: any }[] = [
     { 
       tier: 'Beginner', 
       label: 'Easy', 
-      count: 15, 
       description: 'Master the core interface, layers, and basic non-destructive editing.',
       color: 'bg-green-500',
       icon: BookOpen
@@ -18,7 +49,6 @@ export default function Landing() {
     { 
       tier: 'Intermediate', 
       label: 'Intermediate', 
-      count: 15, 
       description: 'Deep dive into masks, smart objects, and professional retouching techniques.',
       color: 'bg-yellow-500',
       icon: Layers
@@ -26,12 +56,19 @@ export default function Landing() {
     { 
       tier: 'Advanced', 
       label: 'Advanced', 
-      count: 15, 
       description: 'Master high-end compositing, matte painting, and complex color grading.',
       color: 'bg-red-500',
       icon: Award
     }
   ];
+
+  if (loading) {
+    return (
+      <div className="h-[60vh] flex items-center justify-center">
+        <Loader2 className="animate-spin text-[#427AB5]" size={48} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-24">
@@ -97,43 +134,46 @@ export default function Landing() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {categories.map((cat, i) => (
-            <motion.div
-              key={cat.tier}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-              whileHover={{ y: -8 }}
-              className="bg-white border border-[#D9C5A0]/30 p-8 rounded-3xl shadow-ambient group cursor-pointer transition-all hover:border-[#427AB5]/50"
-            >
-              <div className="flex justify-between items-start mb-6">
-                <div className={cn("p-3 rounded-2xl text-white shadow-lg", cat.color)}>
-                  <cat.icon size={24} />
+          {categories.map((cat, i) => {
+            const tierLessons = lessons.filter(l => l.tier === cat.tier);
+            return (
+              <motion.div
+                key={cat.tier}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+                whileHover={{ y: -8 }}
+                className="bg-white border border-[#D9C5A0]/30 p-8 rounded-3xl shadow-ambient group cursor-pointer transition-all hover:border-[#427AB5]/50"
+              >
+                <div className="flex justify-between items-start mb-6">
+                  <div className={cn("p-3 rounded-2xl text-white shadow-lg", cat.color)}>
+                    <cat.icon size={24} />
+                  </div>
+                  <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase text-white shadow-sm", cat.color)}>
+                    {cat.label}
+                  </span>
                 </div>
-                <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase text-white shadow-sm", cat.color)}>
-                  {cat.label}
-                </span>
-              </div>
-              
-              <h3 className="text-2xl font-bold text-[#2D3436] mb-3 group-hover:text-[#427AB5] transition-colors">{cat.tier}</h3>
-              <p className="text-[#2D3436]/70 text-sm leading-relaxed mb-6">
-                {cat.description}
-              </p>
-              
-              <div className="pt-6 border-t border-[#D9C5A0]/20 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[#2D3436]/40 font-bold text-[10px] uppercase tracking-widest">
-                  <Play size={12} />
-                  {cat.count} curated modules
+                
+                <h3 className="text-2xl font-bold text-[#2D3436] mb-3 group-hover:text-[#427AB5] transition-colors">{cat.tier}</h3>
+                <p className="text-[#2D3436]/70 text-sm leading-relaxed mb-6">
+                  {cat.description}
+                </p>
+                
+                <div className="pt-6 border-t border-[#D9C5A0]/20 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-[#2D3436]/40 font-bold text-[10px] uppercase tracking-widest">
+                    <Play size={12} />
+                    {tierLessons.length} curated modules
+                  </div>
+                  <Link 
+                    to={tierLessons.length > 0 ? `/lesson/${tierLessons[0].id}` : '/auth'}
+                    className="flex items-center gap-1 text-sm font-bold text-[#427AB5] hover:gap-3 transition-all"
+                  >
+                    Explore <ArrowRight size={16} />
+                  </Link>
                 </div>
-                <Link 
-                  to={`/lesson/${mockLessons.find(l => l.tier === cat.tier)?.id}`}
-                  className="flex items-center gap-1 text-sm font-bold text-[#427AB5] hover:gap-3 transition-all"
-                >
-                  Explore <ArrowRight size={16} />
-                </Link>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
       </section>
 
@@ -147,7 +187,7 @@ export default function Landing() {
             </div>
             <h2 className="text-4xl font-bold font-display">The Art of High-End Retouching</h2>
             <p className="text-white/80 leading-relaxed">
-              Learn the exact frequency separation and dodging/burning techniques used for luxury fashion magazines. Updated for 2024.
+              Learn the exact frequency separation and dodging/burning techniques used for luxury fashion magazines. Updated for 2026.
             </p>
             <button className="px-8 py-3 bg-white text-deep-blue rounded-xl font-bold hover:scale-105 active:scale-95 transition-all">
               Watch Preview

@@ -1,18 +1,68 @@
 import { useParams, Link } from 'react-router-dom';
-import { mockLessons } from '../data/mockLessons';
 import { motion } from 'motion/react';
-import { Play, Download, CheckCircle, Clock, ChevronRight, Share2, Bookmark } from 'lucide-react';
+import { Play, Download, CheckCircle, Clock, ChevronRight, Share2, Bookmark, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
+import { Lesson } from '../types';
 
 export default function LessonView() {
   const { id } = useParams();
-  const lesson = mockLessons.find(l => l.id === id);
+  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [relatedLessons, setRelatedLessons] = useState<Lesson[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (!lesson) return <div className="text-center py-24 font-display text-2xl">Lesson not found</div>;
+  useEffect(() => {
+    const fetchLessonData = async () => {
+      setLoading(true);
+      try {
+        // Fetch current lesson
+        const { data: currentLesson, error: lessonError } = await supabase
+          .from('lessons')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (lessonError) throw lessonError;
+        setLesson(currentLesson);
 
-  const sidebarLessons = mockLessons
-    .filter(l => l.tier === lesson.tier && l.id !== lesson.id)
-    .slice(0, 14);
+        // Fetch related lessons in the same tier
+        const { data: related, error: relatedError } = await supabase
+          .from('lessons')
+          .select('*')
+          .eq('tier', currentLesson.tier)
+          .neq('id', currentLesson.id)
+          .order('order_index', { ascending: true })
+          .limit(10);
+        
+        if (relatedError) throw relatedError;
+        setRelatedLessons(related);
+      } catch (err) {
+        console.error('Error fetching lesson:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) fetchLessonData();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="h-[60vh] flex items-center justify-center">
+        <Loader2 className="animate-spin text-[#427AB5]" size={48} />
+      </div>
+    );
+  }
+
+  if (!lesson) {
+    return (
+      <div className="text-center py-24">
+        <h2 className="font-display text-4xl font-bold">Lesson Not Found</h2>
+        <Link to="/" className="text-[#427AB5] hover:underline mt-4 inline-block">Return to Curriculum</Link>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
@@ -23,10 +73,11 @@ export default function LessonView() {
           animate={{ opacity: 1, scale: 1 }}
           className="aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl relative border-4 border-white"
         >
+          {/* Placeholder thumbnail for the video player */}
           <img 
-            src={lesson.thumbnail.replace('w=800', 'w=1600')} 
+            src={`https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=1200&q=80`} 
             alt={lesson.title}
-            className="w-full h-full object-cover opacity-60"
+            className="w-full h-full object-cover opacity-40"
           />
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-24 h-24 bg-primary-blue text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform cursor-pointer">
@@ -36,11 +87,11 @@ export default function LessonView() {
           
           {/* Mock Video UI */}
           <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between text-white/80">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 text-xs font-mono">
               <div className="h-1.5 w-48 bg-white/30 rounded-full overflow-hidden">
                 <div className="h-full w-1/3 bg-primary-blue" />
               </div>
-              <span className="text-xs font-mono">12:45 / {lesson.duration}</span>
+              <span>STREAMING HD</span>
             </div>
             <div className="flex gap-4">
               <Share2 size={18} className="cursor-pointer hover:text-white" />
@@ -62,7 +113,7 @@ export default function LessonView() {
                 </span>
                 <div className="flex items-center gap-1 text-[#2D3436]/50 text-sm">
                   <Clock size={14} />
-                  {lesson.duration}
+                  ~15m Module
                 </div>
               </div>
               <h1 className="font-display text-4xl font-bold text-[#2D3436] leading-tight">
@@ -71,7 +122,9 @@ export default function LessonView() {
             </div>
             
             <a 
-              href={lesson.materialsUrl}
+              href={lesson.materials_link}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center gap-2 px-6 py-3 bg-[#FFE8BE] text-[#406AAF] rounded-xl font-bold hover:bg-[#FFE8BE]/80 transition-all border border-[#D9C5A0]/30"
             >
               <Download size={18} />
@@ -80,7 +133,7 @@ export default function LessonView() {
           </div>
 
           <div className="prose prose-slate max-w-none">
-            <p className="text-lg text-[#2D3436]/70 leading-relaxed uppercase font-bold tracking-widest text-[11px] mb-4">Description</p>
+            <p className="text-lg text-[#2D3436]/70 leading-relaxed uppercase font-bold tracking-widest text-[11px] mb-4">Curriculum Breakdown</p>
             <p className="text-[#2D3436]/80 text-lg leading-relaxed">
               {lesson.description}
             </p>
@@ -89,19 +142,19 @@ export default function LessonView() {
               <div>
                 <h4 className="font-bold text-[#2D3436] mb-4 flex items-center gap-2 uppercase tracking-tighter">
                   <CheckCircle size={18} className="text-green-500" />
-                  What you'll learn
+                  Technical Objectives
                 </h4>
                 <ul className="space-y-3 text-sm text-[#2D3436]/70">
                   <li>• High-end non-destructive editing workflows</li>
-                  <li>• Industry-standard organizational habits</li>
-                  <li>• Complex selection and refinement techniques</li>
-                  <li>• Mastering the technical brush engine</li>
+                  <li>• Professional asset organization habits</li>
+                  <li>• Refined selection and masking techniques</li>
+                  <li>• Mastery of core engine tools</li>
                 </ul>
               </div>
               <div className="bg-blue-50/50 rounded-2xl p-6 flex flex-col justify-center">
-                <p className="text-xs font-bold text-[#427AB5] mb-2 uppercase tracking-widest">Student Tip</p>
-                <p className="text-sm text-[#406AAF] italic italic leading-relaxed">
-                  "Remember to use Smart Objects before applying any destructive filters. This is foundational for the level of precision expected in high-end compositing."
+                <p className="text-xs font-bold text-[#427AB5] mb-2 uppercase tracking-widest">Industry Tip</p>
+                <p className="text-sm text-[#406AAF] italic leading-relaxed">
+                  "Smart Objects are your safety net. In professional environments, destructive editing is rarely tolerated. Always preserve your source pixels."
                 </p>
               </div>
             </div>
@@ -113,47 +166,49 @@ export default function LessonView() {
       <aside className="lg:col-span-4 space-y-8">
         <div className="bg-white border border-[#D9C5A0]/30 rounded-3xl p-8 shadow-ambient">
           <div className="flex items-center justify-between mb-8">
-            <h3 className="text-xl font-bold text-[#2D3436]">Course Material</h3>
-            <span className="text-[10px] font-bold px-2 py-1 bg-[#FDFBF7] border border-[#D9C5A0]/30 rounded uppercase tracking-widest">3 Files</span>
+            <h3 className="text-xl font-bold text-[#2D3436]">Lesson Files</h3>
+            <span className="text-[10px] font-bold px-2 py-1 bg-[#FDFBF7] border border-[#D9C5A0]/30 rounded uppercase tracking-widest">Digital Pack</span>
           </div>
           
           <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-center justify-between p-4 bg-[#FDFBF7] rounded-2xl border border-[#D9C5A0]/20 hover:border-[#427AB5]/30 transition-all cursor-pointer group">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white rounded-lg border border-[#D9C5A0]/30 flex items-center justify-center text-[#406AAF] group-hover:bg-[#427AB5] group-hover:text-white transition-all">
-                    <Download size={18} />
-                  </div>
-                  <div className="text-xs">
-                    <p className="font-bold text-[#2D3436]">Resource_Pack_0{i}.zip</p>
-                    <p className="text-[#2D3436]/40">12.4 MB • Zip</p>
-                  </div>
+            <a 
+              href={lesson.materials_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between p-4 bg-[#FDFBF7] rounded-2xl border border-[#D9C5A0]/20 hover:border-[#427AB5]/30 transition-all cursor-pointer group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white rounded-lg border border-[#D9C5A0]/30 flex items-center justify-center text-[#406AAF] group-hover:bg-[#427AB5] group-hover:text-white transition-all">
+                  <Download size={18} />
+                </div>
+                <div className="text-xs">
+                  <p className="font-bold text-[#2D3436]">Lesson_Assets.zip</p>
+                  <p className="text-[#2D3436]/40">Downloadable Resources</p>
                 </div>
               </div>
-            ))}
+            </a>
           </div>
         </div>
 
         <div className="bg-white border border-[#D9C5A0]/30 rounded-3xl overflow-hidden shadow-ambient">
           <div className="p-8 border-b border-[#D9C5A0]/20">
-            <h3 className="text-xl font-bold text-[#2D3436]">Up Next</h3>
-            <p className="text-sm text-[#2D3436]/50">14 lessons remaining in {lesson.tier}</p>
+            <h3 className="text-xl font-bold text-[#2D3436]">Tier Curriculum</h3>
+            <p className="text-sm text-[#2D3436]/50">{relatedLessons.length} modules available for {lesson.tier}</p>
           </div>
           
           <div className="max-h-[600px] overflow-y-auto">
-            {sidebarLessons.map((l, i) => (
+            {relatedLessons.map((l, i) => (
               <Link 
                 key={l.id} 
                 to={`/lesson/${l.id}`}
                 className="flex gap-4 p-6 hover:bg-[#FFE8BE]/10 transition-all border-b border-[#D9C5A0]/10 last:border-0 group"
               >
-                <div className="w-24 h-16 rounded-xl overflow-hidden flex-shrink-0 border border-[#D9C5A0]/20">
-                  <img src={l.thumbnail} alt={l.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                <div className="w-24 h-16 rounded-xl overflow-hidden flex-shrink-0 border border-[#D9C5A0]/20 bg-slate-200">
+                  <img src={`https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=300&q=80`} alt={l.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-60" />
                 </div>
                 <div className="flex flex-col justify-center">
-                  <p className="text-[10px] font-bold text-[#427AB5] uppercase tracking-widest mb-1">Lesson {i + 5}</p>
+                  <p className="text-[10px] font-bold text-[#427AB5] uppercase tracking-widest mb-1">Module {i + 1}</p>
                   <h4 className="text-sm font-bold text-[#2D3436] line-clamp-1 group-hover:text-[#427AB5] transition-colors">{l.title}</h4>
-                  <p className="text-[10px] text-[#2D3436]/40 mt-1">{l.duration}</p>
                 </div>
               </Link>
             ))}
@@ -161,7 +216,7 @@ export default function LessonView() {
           
           <div className="p-6 bg-[#FDFBF7]">
             <Link to="/" className="text-xs font-bold text-[#427AB5] flex items-center justify-center gap-2 hover:gap-4 transition-all uppercase tracking-widest">
-              View Full Tier <ChevronRight size={14} />
+              Back to Catalog <ChevronRight size={14} />
             </Link>
           </div>
         </div>

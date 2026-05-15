@@ -4,15 +4,18 @@ export interface Lesson {
   id: string;
   title: string;
   description: string;
-  videoUrl: string;
-  materialsUrl: string;
+  video_url: string;
+  materials_link: string;
   tier: LessonTier;
-  duration: string;
-  thumbnail: string;
+  order_index?: number;
+  created_at?: string;
+  thumbnail?: string; // Derived or optional
 }
 
-export interface User {
+export interface UserProfile {
   id: string;
   email: string;
-  role: 'Student' | 'Admin';
+  role: 'student' | 'admin';
+  is_approved: boolean;
+  created_at: string;
 }
