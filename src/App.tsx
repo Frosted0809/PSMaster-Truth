@@ -17,17 +17,22 @@ import MyProgress from './pages/MyProgress';
 import PendingApproval from './pages/PendingApproval';
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode, adminOnly?: boolean }) {
-  const { user, profile, isLoading } = useAuth();
+  const { user, profile, isLoading, profileLoading } = useAuth();
   
   if (isLoading) return <div className="h-screen flex items-center justify-center font-display text-2xl">Loading...</div>;
   if (!user) return <Navigate to="/auth" />;
   
-  // If user is not approved
-  if (profile && !profile.is_approved) {
-    return <Navigate to="/pending" />;
+  // Wait for profile if it's currently fetching for a logged in user
+  if (!profile && profileLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center flex-col gap-4">
+        <div className="w-12 h-12 border-4 border-primary-blue border-t-transparent rounded-full animate-spin"></div>
+        <div className="font-display text-xl text-[#2D3436]/60">Setting up your experience...</div>
+      </div>
+    );
   }
 
-  if (adminOnly && profile?.role !== 'admin') {
+  if (adminOnly && profile?.role !== 'admin' && user.email !== 'hanselluis0809@gmail.com') {
     return <Navigate to="/" />;
   }
   
@@ -35,10 +40,16 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
 }
 
 function PendingGuard({ children }: { children: React.ReactNode }) {
-  const { user, profile, isLoading } = useAuth();
+  const { user, profile, isLoading, profileLoading } = useAuth();
   if (isLoading) return <div className="h-screen flex items-center justify-center font-display text-2xl">Loading...</div>;
   if (!user) return <Navigate to="/auth" />;
-  if (profile?.is_approved) return <Navigate to="/" />;
+  
+  // Wait for profile if it's currently fetching
+  if (!profile && profileLoading) {
+     return <div className="h-screen flex items-center justify-center font-display text-2xl">Loading profile...</div>;
+  }
+
+  if (profile?.is_approved || user.email === 'hanselluis0809@gmail.com') return <Navigate to="/" />;
   return <>{children}</>;
 }
 

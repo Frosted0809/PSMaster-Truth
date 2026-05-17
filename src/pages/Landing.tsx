@@ -177,27 +177,65 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Featured Lesson Section */}
-      <section className="bg-deep-blue rounded-[40px] p-12 text-white overflow-hidden relative">
-        <div className="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-l from-white/5 to-transparent skew-x-12" />
-        <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
-            <div className="inline-block px-3 py-1 bg-white/20 rounded-full text-xs font-bold tracking-widest uppercase">
-              Spotlight Course
+      {/* Featured Modules */}
+      {lessons.length > 0 && (
+        <section className="space-y-12">
+          <div className="flex items-end justify-between gap-6">
+            <div className="space-y-2">
+              <h2 className="font-display text-4xl font-bold text-[#2D3436]">Featured Modules</h2>
+              <p className="text-[#2D3436]/60">Hand-picked lessons to accelerate your creative workflow.</p>
             </div>
-            <h2 className="text-4xl font-bold font-display">The Art of High-End Retouching</h2>
-            <p className="text-white/80 leading-relaxed">
-              Learn the exact frequency separation and dodging/burning techniques used for luxury fashion magazines. Updated for 2026.
-            </p>
-            <button className="px-8 py-3 bg-white text-deep-blue rounded-xl font-bold hover:scale-105 active:scale-95 transition-all">
-              Watch Preview
-            </button>
+            <Link to="/auth" className="hidden md:flex items-center gap-2 text-sm font-bold text-[#427AB5] hover:gap-3 transition-all group">
+              View All Modules <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
           </div>
-          <div className="aspect-video bg-black/30 rounded-2xl backdrop-blur-md border border-white/20 flex items-center justify-center">
-            <Play size={40} className="text-white opacity-40" />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {lessons.slice(0, 4).map((lesson, i) => (
+              <motion.div
+                key={lesson.id}
+                initial={{ opacity: 0, scale: 0.95 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="group relative bg-white border border-[#D9C5A0]/30 rounded-[32px] overflow-hidden shadow-ambient hover:border-[#427AB5]/40 transition-all"
+              >
+                <Link to={`/lesson/${lesson.id}`} className="block">
+                  <div className="aspect-[16/10] bg-[#1A1E21] relative overflow-hidden">
+                    {lesson.thumbnail_url ? (
+                      <img 
+                        src={lesson.thumbnail_url} 
+                        alt="" 
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Layers size={40} className="text-[#427AB5]/20" />
+                      </div>
+                    )}
+                    <div className="absolute top-4 left-4">
+                      <span className={cn(
+                        "px-2 py-1 rounded-lg text-[8px] font-black uppercase text-white shadow-lg",
+                        lesson.tier === 'Beginner' ? 'bg-green-500' : lesson.tier === 'Intermediate' ? 'bg-yellow-500' : 'bg-red-500'
+                      )}>
+                        {lesson.tier}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-6 space-y-3">
+                    <h4 className="font-bold text-[#2D3436] line-clamp-1 group-hover:text-[#427AB5] transition-colors">{lesson.title}</h4>
+                    <p className="text-xs text-[#2D3436]/50 line-clamp-2 leading-relaxed">
+                      {lesson.description}
+                    </p>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
     </div>
   );
 }

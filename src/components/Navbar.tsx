@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Shield, LayoutDashboard, Home, BookOpen, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
@@ -8,17 +8,19 @@ import { cn } from '../lib/utils';
 export default function Navbar() {
   const { user, profile, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const signOutAction = async () => {
     await signOut();
     setIsMenuOpen(false);
+    navigate('/auth');
   };
 
   const navLinks = [
     { name: 'Home', path: '/', icon: Home },
-    ...(user && profile?.is_approved ? [{ name: 'My Progress', path: '/progress', icon: BookOpen }] : []),
-    ...(profile?.role === 'admin' && profile?.is_approved ? [{ name: 'Admin Panel', path: '/admin', icon: Shield }] : []),
+    ...(user ? [{ name: 'My Progress', path: '/progress', icon: BookOpen }] : []),
+    ...(user?.email === 'hanselluis0809@gmail.com' || profile?.role === 'admin' ? [{ name: 'Admin Panel', path: '/admin', icon: Shield, highlight: true }] : []),
   ];
 
   return (
@@ -35,11 +37,12 @@ export default function Navbar() {
               key={link.path}
               to={link.path}
               className={cn(
-                "flex items-center gap-2 text-sm font-medium transition-colors hover:text-[#427AB5]",
-                location.pathname === link.path ? "text-[#427AB5]" : "text-[#2D3436]/70"
+                "flex items-center gap-2 text-sm font-medium transition-all px-3 py-1.5 rounded-lg",
+                link.highlight ? "bg-[#427AB5] text-white hover:bg-[#345F8F]" : 
+                location.pathname === link.path ? "text-[#427AB5]" : "text-[#2D3436]/70 hover:text-[#427AB5]"
               )}
             >
-              {link.name === 'Admin Panel' && <Shield size={16} />}
+              {link.icon && <link.icon size={16} />}
               {link.name}
             </Link>
           ))}
@@ -56,10 +59,11 @@ export default function Navbar() {
             )}
             <button
               onClick={signOutAction}
-              className="hidden md:flex text-[#2D3436]/70 hover:text-[#427AB5] transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50 border border-red-100 rounded-lg transition-all"
               title="Logout"
             >
-              <LogOut size={20} />
+              <LogOut size={16} />
+              <span>Logout</span>
             </button>
           </div>
         ) : (

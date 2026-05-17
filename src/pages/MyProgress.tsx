@@ -7,24 +7,54 @@ import { supabase } from '../lib/supabase';
 import { Lesson } from '../types';
 
 export default function MyProgress() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [completedIds, setCompletedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Mock progress ids for now, until we add a progress table
-  const completedIds = ['1', '2', '3'];
+  const displayName = profile?.username || profile?.email?.split('@')[0] || 'Learner';
 
   useEffect(() => {
-    const fetchLessons = async () => {
-      const { data, error } = await supabase
-        .from('lessons')
-        .select('*')
-        .order('order_index', { ascending: true });
-      if (!error && data) setLessons(data);
-      setLoading(false);
+    const fetchData = async (retryCount = 0) => {
+      if (!user) return;
+      setLoading(true);
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+
+      try {
+        // Fetch lessons
+        const lessonsQuery = supabase
+          .from('lessons')
+          .select('*')
+          .order('order_index', { ascending: true });
+        
+        // Fetch progress
+        const progressQuery = supabase
+          .from('user_progress')
+          .select('lesson_id')
+          .eq('user_id', user.id);
+
+        const [{ data: lessonsData, error: lessonsError }, { data: progressData, error: progressError }] = await Promise.all([
+          Promise.race([lessonsQuery, timeoutPromise]) as any,
+          Promise.race([progressQuery, timeoutPromise]) as any
+        ]);
+
+        if (lessonsError) throw lessonsError;
+        if (progressError) throw progressError;
+
+        if (lessonsData) setLessons(lessonsData);
+        if (progressData) setCompletedIds(progressData.map((p: any) => p.lesson_id));
+      } catch (err) {
+        console.error(`Error fetching data:`, err);
+        if (retryCount < 1) return fetchData(retryCount + 1);
+      } finally {
+        setLoading(false);
+      }
     };
-    fetchLessons();
-  }, []);
+    fetchData();
+  }, [user]);
 
   if (loading) {
     return (
@@ -38,7 +68,9 @@ export default function MyProgress() {
     <div className="space-y-12">
       <header className="space-y-4">
         <h1 className="font-display text-4xl font-bold text-[#2D3436]">Your Learning Journey</h1>
-        <p className="text-[#2D3436]/50">Track your progress and pick up where you left off, {user?.email?.split('@')[0]}.</p>
+        <p className="text-[#2D3436]/50">
+          Track your progress and pick up where you left off, <span className="text-[#427AB5] font-bold">{displayName}</span>.
+        </p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

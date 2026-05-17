@@ -1,6 +1,6 @@
 {
-  "name": "PSMastery",
+  "name": "Photoshop Mastery",
   "description": "A high-end, responsive Photoshop tutorial platform designed for BSIT students to master digital arts from fundamentals to advanced compositing.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

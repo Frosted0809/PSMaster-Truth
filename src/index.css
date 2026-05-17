@@ -38,3 +38,60 @@
   box-shadow: 0px 4px 20px rgba(66, 122, 181, 0.08);
 }
 
+/* Custom Lesson Styles (Markdown) */
+.markdown-body {
+  @apply text-[#2D3436]/90 leading-relaxed;
+}
+
+.markdown-body h1 {
+  @apply font-display text-4xl font-bold mb-8 pt-4 text-[#2D3436];
+}
+
+.markdown-body h2 {
+  @apply font-display text-2xl font-bold mt-12 mb-6 text-[#2D3436] border-b border-[#D9C5A0]/20 pb-2;
+}
+
+.markdown-body h3 {
+  @apply font-sans text-lg font-bold mt-8 mb-4 text-[#2D3436] uppercase tracking-widest;
+}
+
+.markdown-body p {
+  @apply mb-6;
+}
+
+.markdown-body ul, .markdown-body ol {
+  @apply ml-6 mb-8 space-y-3;
+}
+
+.markdown-body li {
+  @apply list-disc marker:text-[#427AB5];
+}
+
+/* Quote blocks as "Key Insights" */
+.markdown-body blockquote {
+  @apply border-l-4 border-[#427AB5] bg-blue-50/50 p-8 my-10 rounded-r-3xl italic font-medium text-[#406AAF] shadow-sm;
+}
+
+.markdown-body blockquote p {
+  @apply mb-0 text-lg;
+}
+
+/* Horizontal lines as dividers */
+.markdown-body hr {
+  @apply border-[#D9C5A0]/20 my-12;
+}
+
+/* Strong text styling */
+.markdown-body strong {
+  @apply font-bold text-[#2D3436];
+}
+
+/* Code blocks for technical examples */
+.markdown-body pre {
+  @apply bg-[#FDFBF7] border border-[#D9C5A0]/30 rounded-2xl p-6 my-8 overflow-x-auto font-mono text-sm leading-relaxed;
+}
+
+.markdown-body code:not(pre code) {
+  @apply bg-[#FFE8BE]/30 text-[#406AAF] px-1.5 py-0.5 rounded font-mono text-sm;
+}
+
