@@ -9,6 +9,7 @@ interface AuthContextType {
   isLoading: boolean;
   profileLoading: boolean;
   signOut: () => Promise<void>;
+  connectionError: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,6 +19,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const fetchInProgress = React.useRef<string | null>(null);
   const currentUserIdRef = React.useRef<string | null>(null);
 
@@ -28,7 +30,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     fetchInProgress.current = userId;
-    if (retryCount === 0) setProfileLoading(true);
+    if (retryCount === 0) {
+      setProfileLoading(true);
+      setConnectionError(null);
+    }
 
     try {
       // Very generous timeout for profile fetch because of potential cold starts
@@ -86,7 +91,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err: any) {
       console.error(`Error fetching profile (attempt ${retryCount + 1}):`, err);
       
-      if (retryCount < 4 && (err.message === 'Profile fetch timeout' || !err.status)) {
+      if (err.message === 'Failed to fetch') {
+        setConnectionError('Could not connect to the database. Please check your Supabase project status or your internet connection.');
+      }
+      
+      if (retryCount < 4 && (err.message === 'Profile fetch timeout' || !err.status || err.message === 'Failed to fetch')) {
         // Incremental delay: 3s, 6s, 9s, 12s...
         const delay = 3000 * (retryCount + 1);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -188,7 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, isLoading, profileLoading, signOut }}>
+    <AuthContext.Provider value={{ user, profile, isLoading, profileLoading, signOut, connectionError }}>
       {children}
     </AuthContext.Provider>
   );

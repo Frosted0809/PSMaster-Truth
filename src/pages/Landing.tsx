@@ -9,6 +9,7 @@ import { LessonTier, Lesson } from '../types';
 export default function Landing() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Safety timeout
@@ -23,11 +24,17 @@ export default function Landing() {
           .select('*')
           .order('order_index', { ascending: true });
         
-        if (!error && data) {
+        if (error) throw error;
+        if (data) {
           setLessons(data);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching lessons:', err);
+        if (err.message === 'Failed to fetch') {
+          setError('Could not connect to the database. This usually means the server is down or your internet is disconnected.');
+        } else {
+          setError(err.message || 'An unexpected error occurred while loading modules.');
+        }
       } finally {
         setLoading(false);
         clearTimeout(timer);
@@ -66,6 +73,23 @@ export default function Landing() {
     return (
       <div className="h-[60vh] flex items-center justify-center">
         <Loader2 className="animate-spin text-[#427AB5]" size={48} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center gap-4 text-center px-4">
+        <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 max-w-md">
+          <p className="font-bold mb-1">Connection Error</p>
+          <p className="text-sm opacity-80">{error}</p>
+        </div>
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-6 py-2 bg-[#427AB5] text-white rounded-xl font-bold hover:scale-105 transition-all"
+        >
+          Retry Connection
+        </button>
       </div>
     );
   }

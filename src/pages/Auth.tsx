@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, UserPlus, LogIn, ShieldAlert, AlertCircle, Loader2, User } from 'lucide-react';
 
 export default function Auth() {
+  const [searchParams] = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
   const [authMode, setAuthMode] = useState<'student' | 'admin'>('student');
   const [email, setEmail] = useState('');
@@ -14,6 +15,14 @@ export default function Auth() {
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const showAdminToggle = searchParams.get('access') === 'admin';
+
+  useEffect(() => {
+    if (searchParams.get('role') === 'admin') {
+      setAuthMode('admin');
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +79,12 @@ export default function Auth() {
         setIsLogin(true);
       }
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
+      console.error('Auth error:', err);
+      if (err.message === 'Failed to fetch') {
+        setError('Network error: Could not connect to the authentication server. Please check your internet connection or Supabase project status.');
+      } else {
+        setError(err.message || 'An unexpected error occurred');
+      }
     } finally {
       setLoading(false);
     }
@@ -78,20 +92,22 @@ export default function Auth() {
 
   return (
     <div className="max-w-md mx-auto py-12">
-      <div className="flex bg-[#FDFBF7] border border-[#D9C5A0]/30 p-1 rounded-2xl mb-8">
-        <button
-          onClick={() => { setAuthMode('student'); setError(null); }}
-          className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${authMode === 'student' ? 'bg-[#427AB5] text-white shadow-md' : 'text-[#2D3436]/50 hover:bg-[#D9C5A0]/10'}`}
-        >
-          Student
-        </button>
-        <button
-          onClick={() => { setAuthMode('admin'); setIsLogin(true); setError(null); }}
-          className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${authMode === 'admin' ? 'bg-[#427AB5] text-white shadow-md' : 'text-[#2D3436]/50 hover:bg-[#D9C5A0]/10'}`}
-        >
-          Admin
-        </button>
-      </div>
+      {showAdminToggle && (
+        <div className="flex bg-[#FDFBF7] border border-[#D9C5A0]/30 p-1 rounded-2xl mb-8">
+          <button
+            onClick={() => { setAuthMode('student'); setError(null); }}
+            className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${authMode === 'student' ? 'bg-[#427AB5] text-white shadow-md' : 'text-[#2D3436]/50 hover:bg-[#D9C5A0]/10'}`}
+          >
+            Student
+          </button>
+          <button
+            onClick={() => { setAuthMode('admin'); setIsLogin(true); setError(null); }}
+            className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${authMode === 'admin' ? 'bg-[#427AB5] text-white shadow-md' : 'text-[#2D3436]/50 hover:bg-[#D9C5A0]/10'}`}
+          >
+            Admin
+          </button>
+        </div>
+      )}
 
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
@@ -103,7 +119,14 @@ export default function Auth() {
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-50 blur-3xl -z-10" />
 
         <div className="text-center mb-10 space-y-2">
-          <div className="w-16 h-16 bg-[#427AB5] rounded-24 flex items-center justify-center text-white mx-auto mb-6 shadow-lg shadow-blue-200">
+          <div 
+            onClick={() => {
+              if (searchParams.get('access') !== 'admin') {
+                navigate('/auth?access=admin');
+              }
+            }}
+            className="w-16 h-16 bg-[#427AB5] rounded-24 flex items-center justify-center text-white mx-auto mb-6 shadow-lg shadow-blue-200 cursor-default active:scale-95 transition-transform"
+          >
             {isLogin ? <LogIn size={28} /> : <UserPlus size={28} />}
           </div>
           <h1 className="font-display text-3xl font-bold text-[#2D3436]">

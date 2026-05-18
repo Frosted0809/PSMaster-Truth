@@ -10,8 +10,7 @@ import { useNavigate } from 'react-router-dom';
 export default function AdminDashboard() {
   const { user, profile, profileLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'approvals' | 'lessons' | 'students'>('approvals');
-  const [pendingUsers, setPendingUsers] = useState<UserProfile[]>([]);
+  const [activeTab, setActiveTab] = useState<'lessons' | 'students'>('lessons');
   const [allStudents, setAllStudents] = useState<UserProfile[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +23,8 @@ export default function AdminDashboard() {
       navigate('/');
     }
   }, [user, profile, profileLoading, navigate]);
+
+  const [isEditing, setIsEditing] = useState<string | null>(null);
 
   // Lesson Form State
   const [newLesson, setNewLesson] = useState({
@@ -85,7 +86,8 @@ export default function AdminDashboard() {
   };
 
   const fetchData = React.useCallback(async (retryCount = 0) => {
-    setLoading(true);
+    // Keep loading state if we are just updating a lesson to avoid flicker
+    if (!actionLoading) setLoading(true);
     setError(null);
     
     const timeoutPromise = new Promise((_, reject) => 
@@ -93,17 +95,7 @@ export default function AdminDashboard() {
     );
 
     try {
-      if (activeTab === 'approvals') {
-        const query = supabase
-          .from('profiles')
-          .select('*')
-          .eq('is_approved', false)
-          .order('created_at', { ascending: false });
-          
-        const { data, error }: any = await Promise.race([query, timeoutPromise]);
-        if (error) throw error;
-        setPendingUsers(data || []);
-      } else if (activeTab === 'students') {
+      if (activeTab === 'students') {
         const query = supabase
           .from('profiles')
           .select('*')
@@ -125,6 +117,9 @@ export default function AdminDashboard() {
       }
     } catch (err: any) {
       console.error(`Error fetching admin data:`, err);
+      if (err.message === 'Failed to fetch') {
+        setError('Failed to fetch admin data. Database connection issue.');
+      }
       if (retryCount < 1) return fetchData(retryCount + 1);
       setError(err?.message || 'Failed to fetch admin data.');
     } finally {
@@ -136,30 +131,23 @@ export default function AdminDashboard() {
     fetchData();
   }, [fetchData]);
 
-  const handleApprove = async (userId: string) => {
-    setActionLoading(userId);
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ is_approved: true })
-        .eq('id', userId);
-      if (error) throw error;
-      setPendingUsers(prev => prev.filter(u => u.id !== userId));
-    } catch (err) {
-      console.error('Error approving user:', err);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleAddLesson = async (e: React.FormEvent) => {
+  const handleSaveLesson = async (e: React.FormEvent) => {
     e.preventDefault();
-    setActionLoading('adding-lesson');
+    setActionLoading(isEditing ? 'updating-lesson' : 'adding-lesson');
     try {
-      const { error } = await supabase
-        .from('lessons')
-        .insert([newLesson]);
-      if (error) throw error;
+      if (isEditing) {
+        const { error } = await supabase
+          .from('lessons')
+          .update(newLesson)
+          .eq('id', isEditing);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('lessons')
+          .insert([newLesson]);
+        if (error) throw error;
+      }
+
       setNewLesson({ 
         title: '', 
         content: '', 
@@ -168,12 +156,38 @@ export default function AdminDashboard() {
         thumbnail_url: '',
         steps: []
       });
+      setIsEditing(null);
       fetchData(); // Refresh list
     } catch (err) {
-      console.error('Error adding lesson:', err);
+      console.error('Error saving lesson:', err);
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const handleEditLesson = (lesson: Lesson) => {
+    setIsEditing(lesson.id);
+    setNewLesson({
+      title: lesson.title,
+      content: lesson.content,
+      tier: lesson.tier,
+      description: lesson.description || '',
+      thumbnail_url: lesson.thumbnail_url || '',
+      steps: lesson.steps || []
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(null);
+    setNewLesson({ 
+      title: '', 
+      content: '', 
+      tier: 'Beginner', 
+      description: '',
+      thumbnail_url: '',
+      steps: []
+    });
   };
 
   const handleDeleteLesson = async (lessonId: string) => {
@@ -206,15 +220,6 @@ export default function AdminDashboard() {
         </div>
 
         <div className="flex bg-white p-1 border border-[#D9C5A0]/30 rounded-2xl shadow-ambient overflow-x-auto">
-          <button 
-            onClick={() => setActiveTab('approvals')}
-            className={cn(
-              "px-6 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap",
-              activeTab === 'approvals' ? "bg-primary-blue text-white shadow-lg" : "text-[#2D3436]/50"
-            )}
-          >
-            Approvals
-          </button>
           <button 
             onClick={() => setActiveTab('students')}
             className={cn(
@@ -255,54 +260,7 @@ export default function AdminDashboard() {
         </div>
       ) : (
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          {activeTab === 'approvals' ? (
-            <div className="lg:col-span-8 bg-white border border-[#D9C5A0]/30 rounded-[40px] p-10 shadow-ambient space-y-8">
-              <h2 className="font-display text-2xl font-bold text-[#2D3436]">Pending Admissions</h2>
-              
-              {pendingUsers.length === 0 ? (
-                <div className="py-12 text-center text-[#2D3436]/40 italic">
-                  No pending user approvals at this time.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {pendingUsers.map((u) => (
-                    <motion.div 
-                      key={u.id}
-                      layout
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="flex items-center justify-between p-6 bg-[#FDFBF7] rounded-3xl border border-[#D9C5A0]/20"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-[#FFE8BE] flex items-center justify-center text-[#406AAF] font-bold">
-                          {(u.username || u.email)[0].toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-bold text-[#2D3436]">{u.username || u.email}</p>
-                          <p className="text-[10px] text-[#2D3436]/40 uppercase font-black tracking-widest">
-                            {u.username ? 'Student' : u.role}
-                            {u.email.endsWith('@student.local') ? ' (Username-only)' : ''}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => handleApprove(u.id)}
-                          disabled={!!actionLoading}
-                          className="p-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-all shadow-lg shadow-green-500/20 disabled:opacity-50"
-                        >
-                          {actionLoading === u.id ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
-                        </button>
-                        <button className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all">
-                          <X size={18} />
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : activeTab === 'students' ? (
+          {activeTab === 'students' ? (
             <div className="lg:col-span-8 bg-white border border-[#D9C5A0]/30 rounded-[40px] p-10 shadow-ambient space-y-8">
               <h2 className="font-display text-2xl font-bold text-[#2D3436]">Student List</h2>
               
@@ -340,8 +298,20 @@ export default function AdminDashboard() {
               {/* Lesson Manager Column */}
               <div className="lg:col-span-8 space-y-8">
                 <div className="bg-white border border-[#D9C5A0]/30 rounded-[40px] p-10 shadow-ambient space-y-10">
-                  <h2 className="font-display text-2xl font-bold text-[#2D3436]">Add Curriculum Module</h2>
-                  <form onSubmit={handleAddLesson} className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-display text-2xl font-bold text-[#2D3436]">
+                      {isEditing ? 'Edit Module' : 'Add Curriculum Module'}
+                    </h2>
+                    {isEditing && (
+                      <button 
+                        onClick={cancelEdit}
+                        className="text-xs font-bold text-red-500 hover:underline uppercase tracking-widest"
+                      >
+                        Cancel Edit
+                      </button>
+                    )}
+                  </div>
+                  <form onSubmit={handleSaveLesson} className="space-y-6">
                     <div className="grid md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-[#2D3436] uppercase tracking-widest pl-1">Title</label>
@@ -481,14 +451,32 @@ export default function AdminDashboard() {
                         className="w-full px-4 py-4 bg-[#FDFBF7] border border-[#D9C5A0]/30 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-blue/20 text-sm font-mono"
                       />
                     </div>
-                    <button 
-                      type="submit" 
-                      disabled={actionLoading === 'adding-lesson'}
-                      className="px-10 py-4 bg-primary-blue text-white rounded-2xl font-bold flex items-center gap-2 hover:translate-x-1 transition-all shadow-lg shadow-blue-500/20"
-                    >
-                      {actionLoading === 'adding-lesson' ? <Loader2 className="animate-spin" /> : <Plus size={20} />}
-                      Publish Module
-                    </button>
+                    <div className="flex items-center gap-4">
+                      <button 
+                        type="submit" 
+                        disabled={!!actionLoading}
+                        className="px-10 py-4 bg-primary-blue text-white rounded-2xl font-bold flex items-center gap-2 hover:translate-x-1 transition-all shadow-lg shadow-blue-500/20"
+                      >
+                        {actionLoading === 'adding-lesson' || actionLoading === 'updating-lesson' ? (
+                          <Loader2 className="animate-spin" />
+                        ) : isEditing ? (
+                          <Check size={20} />
+                        ) : (
+                          <Plus size={20} />
+                        )}
+                        {isEditing ? 'Update Module' : 'Publish Module'}
+                      </button>
+                      
+                      {isEditing && (
+                        <button 
+                          type="button"
+                          onClick={cancelEdit}
+                          className="px-6 py-4 bg-red-50 text-red-500 rounded-2xl font-bold hover:bg-red-100 transition-all"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
                   </form>
                 </div>
 
@@ -509,12 +497,22 @@ export default function AdminDashboard() {
                             <p className="text-[10px] text-[#2D3436]/40 uppercase tracking-widest">{lesson.tier}</p>
                           </div>
                         </div>
-                        <button 
-                          onClick={() => handleDeleteLesson(lesson.id)}
-                          className="p-3 bg-red-50 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-100"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => handleEditLesson(lesson)}
+                            className="p-3 bg-blue-50 text-[#427AB5] rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-blue-100"
+                            title="Edit Module"
+                          >
+                            <Layout size={18} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteLesson(lesson.id)}
+                            className="p-3 bg-red-50 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-100"
+                            title="Delete Module"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -528,9 +526,9 @@ export default function AdminDashboard() {
             <div className="bg-white border border-[#D9C5A0]/30 rounded-[32px] p-8 shadow-ambient space-y-6">
               <h3 className="text-lg font-bold text-[#2D3436]">Insights</h3>
               <div className="p-6 bg-blue-50 border border-blue-100/50 rounded-2xl space-y-2">
-                <p className="text-[10px] font-bold text-[#427AB5] uppercase tracking-widest">Platform Integrity</p>
+                <p className="text-[10px] font-bold text-[#427AB5] uppercase tracking-widest">Platform Status</p>
                 <p className="text-xs text-[#406AAF] leading-relaxed">
-                  Only approved users can access curriculum assets. Admins must end in <strong>@admin.com</strong> for automatic role assignment.
+                  Platform is active. Any registered student can access modules immediately.
                 </p>
               </div>
               <div className="space-y-4">
@@ -539,8 +537,8 @@ export default function AdminDashboard() {
                   <span className="font-bold">{lessons.length}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-[#2D3436]/50">Unapproved:</span>
-                  <span className="font-bold text-amber-600">{pendingUsers.length}</span>
+                  <span className="text-[#2D3436]/50">Total Students:</span>
+                  <span className="font-bold text-[#427AB5]">{allStudents.length}</span>
                 </div>
               </div>
             </div>

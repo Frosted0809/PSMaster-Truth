@@ -18,11 +18,13 @@ export default function LessonView() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchLessonData = async (retryCount = 0) => {
       if (!id || !user) return;
       setLoading(true);
+      setError(null);
       
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Connection timeout')), 15000)
@@ -52,9 +54,13 @@ export default function LessonView() {
           const { data: related } = await Promise.race([relatedQuery, timeoutPromise]) as any;
           setRelatedLessons(related || []);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(`Error fetching lesson:`, err);
+        if (err.message === 'Failed to fetch') {
+          setError('Failed to load lesson. Connection issues detected.');
+        }
         if (retryCount < 1) return fetchLessonData(retryCount + 1);
+        setError(err.message || 'An unexpected error occurred while loading this module.');
       } finally {
         setLoading(false);
       }
@@ -110,6 +116,23 @@ export default function LessonView() {
     return (
       <div className="h-[60vh] flex items-center justify-center">
         <Loader2 className="animate-spin text-[#427AB5]" size={48} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center gap-4 text-center px-4">
+        <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 max-w-md">
+          <p className="font-bold mb-1">Module Load Error</p>
+          <p className="text-sm opacity-80">{error}</p>
+        </div>
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-6 py-2 bg-[#427AB5] text-white rounded-xl font-bold hover:scale-105 transition-all"
+        >
+          Retry Loading
+        </button>
       </div>
     );
   }
@@ -215,7 +238,7 @@ export default function LessonView() {
             </div>
           </header>
 
-          <article className="prose prose-slate max-w-none bg-white border border-[#D9C5A0]/30 rounded-[32px] md:rounded-[40px] p-6 md:p-12 shadow-ambient">
+          <article className="prose prose-slate max-w-full bg-white border border-[#D9C5A0]/30 rounded-[32px] md:rounded-[40px] p-6 md:p-12 shadow-ambient overflow-hidden break-words">
             {lesson.steps && lesson.steps.length > 0 && (
               <div className="mb-12 not-prose">
                 <h2 className="text-xs font-black uppercase text-[#427AB5] tracking-[0.2em] mb-6 flex items-center gap-2">

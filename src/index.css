@@ -40,7 +40,7 @@
 
 /* Custom Lesson Styles (Markdown) */
 .markdown-body {
-  @apply text-[#2D3436]/90 leading-relaxed;
+  @apply text-[#2D3436]/90 leading-relaxed break-words;
 }
 
 .markdown-body h1 {

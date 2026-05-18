@@ -13,11 +13,13 @@ export default function MyProgress() {
   const [loading, setLoading] = useState(true);
   
   const displayName = profile?.username || profile?.email?.split('@')[0] || 'Learner';
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async (retryCount = 0) => {
       if (!user) return;
       setLoading(true);
+      setError(null);
       
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Connection timeout')), 15000)
@@ -46,9 +48,13 @@ export default function MyProgress() {
 
         if (lessonsData) setLessons(lessonsData);
         if (progressData) setCompletedIds(progressData.map((p: any) => p.lesson_id));
-      } catch (err) {
+      } catch (err: any) {
         console.error(`Error fetching data:`, err);
+        if (err.message === 'Failed to fetch') {
+          setError('Failed to fetch data. Database connection issue.');
+        }
         if (retryCount < 1) return fetchData(retryCount + 1);
+        setError(err.message || 'An error occurred while loading your progress.');
       } finally {
         setLoading(false);
       }
@@ -60,6 +66,23 @@ export default function MyProgress() {
     return (
       <div className="h-[60vh] flex items-center justify-center">
         <Loader2 className="animate-spin text-[#427AB5]" size={48} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center gap-4 text-center px-4">
+        <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 max-w-md">
+          <p className="font-bold mb-1">Load Error</p>
+          <p className="text-sm opacity-80">{error}</p>
+        </div>
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-6 py-2 bg-[#427AB5] text-white rounded-xl font-bold hover:scale-105 transition-all"
+        >
+          Try Again
+        </button>
       </div>
     );
   }

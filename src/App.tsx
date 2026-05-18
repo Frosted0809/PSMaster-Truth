@@ -7,6 +7,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
+import { motion } from 'motion/react';
 
 // Pages
 import Landing from './pages/Landing';
@@ -14,7 +15,6 @@ import Auth from './pages/Auth';
 import LessonView from './pages/LessonView';
 import AdminDashboard from './pages/AdminDashboard';
 import MyProgress from './pages/MyProgress';
-import PendingApproval from './pages/PendingApproval';
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode, adminOnly?: boolean }) {
   const { user, profile, isLoading, profileLoading } = useAuth();
@@ -39,52 +39,56 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
   return <>{children}</>;
 }
 
-function PendingGuard({ children }: { children: React.ReactNode }) {
-  const { user, profile, isLoading, profileLoading } = useAuth();
-  if (isLoading) return <div className="h-screen flex items-center justify-center font-display text-2xl">Loading...</div>;
-  if (!user) return <Navigate to="/auth" />;
-  
-  // Wait for profile if it's currently fetching
-  if (!profile && profileLoading) {
-     return <div className="h-screen flex items-center justify-center font-display text-2xl">Loading profile...</div>;
-  }
+function AppContent() {
+  const { connectionError } = useAuth();
 
-  if (profile?.is_approved || user.email === 'hanselluis0809@gmail.com') return <Navigate to="/" />;
-  return <>{children}</>;
+  return (
+    <Router>
+      <Layout>
+        {connectionError && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-500 text-white px-6 py-2 text-center text-xs font-bold uppercase tracking-widest z-[60] relative mb-4 rounded-xl shadow-lg"
+          >
+            Network Error: {connectionError}
+            <button 
+              onClick={() => window.location.reload()}
+              className="ml-4 underline hover:no-underline"
+            >
+              Retry
+            </button>
+          </motion.div>
+        )}
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/progress" element={
+            <ProtectedRoute>
+              <MyProgress />
+            </ProtectedRoute>
+          } />
+          <Route path="/lesson/:id" element={
+            <ProtectedRoute>
+              <LessonView />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin" element={
+            <ProtectedRoute adminOnly>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Layout>
+    </Router>
+  );
 }
 
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/pending" element={
-              <PendingGuard>
-                <PendingApproval />
-              </PendingGuard>
-            } />
-            <Route path="/progress" element={
-              <ProtectedRoute>
-                <MyProgress />
-              </ProtectedRoute>
-            } />
-            <Route path="/lesson/:id" element={
-              <ProtectedRoute>
-                <LessonView />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin" element={
-              <ProtectedRoute adminOnly>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </Layout>
-      </Router>
+      <AppContent />
     </AuthProvider>
   );
 }
