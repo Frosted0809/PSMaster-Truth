@@ -109,7 +109,7 @@ export default function Landing() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFE8BE] text-[#406AAF] text-[10px] md:text-xs font-bold tracking-[0.2em] uppercase rounded-full"
           >
             <Star size={14} fill="currentColor" />
-            The Photoshop Authority for BSIT
+            The Photoshop Authority for Students
           </motion.div>
           
           <motion.h1 
