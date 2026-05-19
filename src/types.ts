@@ -19,6 +19,21 @@ export interface UserProgress {
   completed_at: string;
 }
 
+export interface Feedback {
+  id: string;
+  user_id: string;
+  lesson_id?: string;
+  rating: number;
+  comment: string;
+  admin_reply?: string;
+  created_at: string;
+  user_profile?: UserProfile;
+  profiles?: {
+    username?: string;
+    email: string;
+  };
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -26,4 +41,5 @@ export interface UserProfile {
   role: 'student' | 'admin';
   is_approved: boolean;
   created_at: string;
+  last_lesson_id?: string;
 }

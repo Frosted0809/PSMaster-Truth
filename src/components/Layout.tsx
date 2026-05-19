@@ -15,13 +15,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </motion.main>
       <footer className="py-12 border-t border-[#D9C5A0]/20 text-center text-[#2D3436]/50 text-sm">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-center items-center gap-4">
           <p>© 2026 PSMastery. Refined Photoshop Education for Students.</p>
-          <div className="flex gap-6">
-            <a href="#" className="hover:text-[#427AB5] transition-colors">Terms</a>
-            <a href="#" className="hover:text-[#427AB5] transition-colors">Privacy</a>
-            <a href="#" className="hover:text-[#427AB5] transition-colors">Contact</a>
-          </div>
         </div>
       </footer>
     </div>

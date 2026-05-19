@@ -21,27 +21,18 @@ export default function MyProgress() {
       setLoading(true);
       setError(null);
       
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Connection timeout')), 15000)
-      );
-
       try {
         // Fetch lessons
-        const lessonsQuery = supabase
+        const { data: lessonsData, error: lessonsError } = await supabase
           .from('lessons')
           .select('*')
           .order('order_index', { ascending: true });
         
         // Fetch progress
-        const progressQuery = supabase
+        const { data: progressData, error: progressError } = await supabase
           .from('user_progress')
           .select('lesson_id')
           .eq('user_id', user.id);
-
-        const [{ data: lessonsData, error: lessonsError }, { data: progressData, error: progressError }] = await Promise.all([
-          Promise.race([lessonsQuery, timeoutPromise]) as any,
-          Promise.race([progressQuery, timeoutPromise]) as any
-        ]);
 
         if (lessonsError) throw lessonsError;
         if (progressError) throw progressError;
@@ -131,8 +122,10 @@ export default function MyProgress() {
                       <CheckCircle2 size={16} />
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <PlayCircle size={48} className="text-white" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span className="text-white text-xs font-bold uppercase tracking-widest px-4 py-2 border border-white/50 rounded-full backdrop-blur-sm">
+                      {isCompleted ? 'Review' : 'View Module'}
+                    </span>
                   </div>
                 </div>
                 

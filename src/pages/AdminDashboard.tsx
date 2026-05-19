@@ -1,21 +1,28 @@
-import { motion } from 'motion/react';
-import { Users, BookOpen, Plus, TrendingUp, Shield, MoreVertical, Check, X, Trash2, AlertCircle, Loader2, User as UserIcon, Upload, Layout } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Users, BookOpen, Plus, Shield, MoreVertical, Check, X, Trash2, AlertCircle, Loader2, User as UserIcon, Upload, Layout, Star, MessageSquare, Reply, Clock } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
-import { UserProfile, Lesson } from '../types';
+import { UserProfile, Lesson, Feedback } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function AdminDashboard() {
   const { user, profile, profileLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'lessons' | 'students'>('lessons');
-  const [allStudents, setAllStudents] = useState<UserProfile[]>([]);
+  const [activeTab, setActiveTab ] = useState<'lessons' | 'students' | 'feedback'>('students');
+  const [allStudents, setAllStudents] = useState<(UserProfile & { 
+    last_lesson?: string, 
+    progress_count?: number, 
+    total_lessons?: number,
+    tier_progress?: { [key: string]: { completed: number, total: number } }
+  })[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState<{ [key: string]: string }>({});
 
   // Security Gate
   useEffect(() => {
@@ -85,42 +92,86 @@ export default function AdminDashboard() {
     }));
   };
 
-  const fetchData = React.useCallback(async (retryCount = 0) => {
-    // Keep loading state if we are just updating a lesson to avoid flicker
-    if (!actionLoading) setLoading(true);
+  const fetchData = React.useCallback(async (triggerLoading = true) => {
+    if (triggerLoading) setLoading(true);
     setError(null);
     
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Connection timeout')), 20000)
-    );
-
     try {
+      // Always fetch lessons for mapping and counts
+      const { data: lessonsData, error: lessonsError } = await supabase
+        .from('lessons')
+        .select('*')
+        .order('order_index', { ascending: true });
+      
+      if (lessonsError) throw lessonsError;
+      const currentLessons = lessonsData || [];
+      setLessons(currentLessons);
+      
+      const lessonsMap = currentLessons.reduce((acc: any, l: any) => ({ ...acc, [l.id]: l.title }), {});
+      const totalLessonsCount = currentLessons.length;
+      const lessonsPerTier = currentLessons.reduce((acc: any, l: any) => {
+        acc[l.tier] = (acc[l.tier] || 0) + 1;
+        return acc;
+      }, {});
+
+      const lessonsTierMap = currentLessons.reduce((acc: any, l: any) => ({ ...acc, [l.id]: l.tier }), {});
+
       if (activeTab === 'students') {
-        const query = supabase
+        // Optimized fetch: Get students and their progress in one request using nested select
+        const { data: studentsData, error: studentsError }: any = await supabase
           .from('profiles')
-          .select('*')
+          .select('*, user_progress(lesson_id, completed_at)')
           .eq('role', 'student')
           .order('created_at', { ascending: false });
-          
-        const { data, error }: any = await Promise.race([query, timeoutPromise]);
-        if (error) throw error;
-        setAllStudents(data || []);
-      } else {
-        const query = supabase
-          .from('lessons')
-          .select('*')
-          .order('order_index', { ascending: true });
 
-        const { data, error }: any = await Promise.race([query, timeoutPromise]);
-        if (error) throw error;
-        setLessons(data || []);
+        if (studentsError) throw studentsError;
+
+        const studentsWithProgress = (studentsData || []).map((s: any) => {
+          const userProgress = s.user_progress || [];
+          const progress = [...userProgress].sort((a: any, b: any) => {
+            const dateA = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+            const dateB = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+            return dateB - dateA;
+          });
+          
+          const tierProgress: any = {};
+          Object.keys(lessonsPerTier).forEach(tier => {
+            const tierTotal = lessonsPerTier[tier];
+            const tierCompleted = userProgress.filter((p: any) => lessonsTierMap[p.lesson_id] === tier).length;
+            tierProgress[tier] = { completed: tierCompleted, total: tierTotal };
+          });
+          
+          return {
+            ...s,
+            progress_count: progress.length,
+            total_lessons: totalLessonsCount,
+            last_lesson: progress.length > 0 ? (lessonsMap[progress[0].lesson_id] || 'Unknown Lesson') : 'No progress',
+            tier_progress: tierProgress
+          };
+        });
+
+        setAllStudents(studentsWithProgress);
+      } else if (activeTab === 'feedback') {
+        const { data, error }: any = await supabase
+          .from('feedback')
+          .select('*, profiles(username, email)')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          if (error.code === '42P01') {
+            setFeedback([]);
+          } else {
+            throw error;
+          }
+        } else {
+          setFeedback(data || []);
+        }
       }
     } catch (err: any) {
       console.error(`Error fetching admin data:`, err);
       if (err.message === 'Failed to fetch') {
         setError('Failed to fetch admin data. Database connection issue.');
       }
-      if (retryCount < 1) return fetchData(retryCount + 1);
       setError(err?.message || 'Failed to fetch admin data.');
     } finally {
       setLoading(false);
@@ -157,7 +208,7 @@ export default function AdminDashboard() {
         steps: []
       });
       setIsEditing(null);
-      fetchData(); // Refresh list
+      fetchData(false); // Refresh list without full loading indicator
     } catch (err) {
       console.error('Error saving lesson:', err);
     } finally {
@@ -207,6 +258,28 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleReplyFeedback = async (feedbackId: string) => {
+    const text = replyText[feedbackId];
+    if (!text?.trim()) return;
+
+    setActionLoading(`reply-${feedbackId}`);
+    try {
+      const { error } = await supabase
+        .from('feedback')
+        .update({ admin_reply: text.trim() })
+        .eq('id', feedbackId);
+      
+      if (error) throw error;
+
+      setFeedback(prev => prev.map(f => f.id === feedbackId ? { ...f, admin_reply: text.trim() } : f));
+      setReplyText(prev => ({ ...prev, [feedbackId]: '' }));
+    } catch (err) {
+      console.error('Error replying to feedback:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   return (
     <div className="space-y-12">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -228,6 +301,15 @@ export default function AdminDashboard() {
             )}
           >
             Student Track
+          </button>
+          <button 
+            onClick={() => setActiveTab('feedback')}
+            className={cn(
+              "px-6 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap",
+              activeTab === 'feedback' ? "bg-primary-blue text-white shadow-lg" : "text-[#2D3436]/50"
+            )}
+          >
+            Feedback
           </button>
           <button 
             onClick={() => setActiveTab('lessons')}
@@ -262,7 +344,7 @@ export default function AdminDashboard() {
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           {activeTab === 'students' ? (
             <div className="lg:col-span-8 bg-white border border-[#D9C5A0]/30 rounded-[40px] p-10 shadow-ambient space-y-8">
-              <h2 className="font-display text-2xl font-bold text-[#2D3436]">Student List</h2>
+              <h2 className="font-display text-2xl font-bold text-[#2D3436]">Student Performance Tracking</h2>
               
               {allStudents.length === 0 ? (
                 <div className="py-12 text-center text-[#2D3436]/40 italic">
@@ -270,24 +352,144 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {allStudents.map((u) => (
+                  {allStudents.map((u) => {
+                    const progressPercent = u.total_lessons && u.total_lessons > 0 ? (u.progress_count || 0) / u.total_lessons * 100 : 0;
+                    return (
                     <div 
                       key={u.id}
-                      className="flex items-center justify-between p-6 bg-[#FDFBF7] rounded-3xl border border-[#D9C5A0]/20"
+                      className="flex flex-col p-6 bg-[#FDFBF7] rounded-3xl border border-[#D9C5A0]/20 gap-4"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-[#FFE8BE] flex items-center justify-center text-[#406AAF] font-bold">
-                          <UserIcon size={20} />
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-2xl bg-[#FFE8BE] flex items-center justify-center text-[#406AAF] font-bold">
+                            <UserIcon size={20} />
+                          </div>
+                          <div>
+                            <p className="font-bold text-[#2D3436]">{u.username || u.email}</p>
+                            <p className="text-[10px] text-[#2D3436]/40 uppercase font-bold tracking-widest">
+                              Joined {new Date(u.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-[#2D3436]">{u.username || u.email}</p>
-                          <p className="text-[10px] text-green-600 uppercase font-bold tracking-widest">Active Student</p>
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold text-[#2D3436]/40 uppercase tracking-widest">Completion</p>
+                          <p className="text-sm font-black text-[#427AB5]">{u.progress_count} / {u.total_lessons}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs font-bold text-[#2D3436]/40">Joined</p>
-                        <p className="text-xs font-bold text-[#2D3436]">{new Date(u.created_at).toLocaleDateString()}</p>
+                      
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+                          <span className="text-[#2D3436]/50">Total Progress:</span>
+                          <span className="text-[#427AB5]">{u.last_lesson}</span>
+                        </div>
+                        
+                        <div className="h-2 w-full bg-[#E5E7EB] rounded-full overflow-hidden">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${progressPercent}%` }}
+                            className="h-full bg-[#427AB5]"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          {['Beginner', 'Intermediate', 'Advanced'].map((tier) => {
+                            const data = u.tier_progress?.[tier];
+                            if (!data || data.total === 0) return null;
+                            const percent = (data.completed / data.total) * 100;
+                            
+                            return (
+                              <div key={tier} className="space-y-1">
+                                <div className="flex justify-between text-[8px] font-black uppercase tracking-tight">
+                                  <span className={cn(
+                                    tier === 'Beginner' ? 'text-green-600' : tier === 'Intermediate' ? 'text-amber-500' : 'text-red-500'
+                                  )}>{tier}</span>
+                                  <span className="text-[#2D3436]/40">{data.completed}/{data.total}</span>
+                                </div>
+                                <div className="h-1 w-full bg-black/5 rounded-full overflow-hidden">
+                                  <div 
+                                    className={cn(
+                                      "h-full transition-all duration-500",
+                                      tier === 'Beginner' ? 'bg-green-500' : tier === 'Intermediate' ? 'bg-amber-500' : 'bg-red-500'
+                                    )}
+                                    style={{ width: `${percent}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
+                    </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'feedback' ? (
+            <div className="lg:col-span-8 bg-white border border-[#D9C5A0]/30 rounded-[40px] p-10 shadow-ambient space-y-8">
+              <h2 className="font-display text-2xl font-bold text-[#2D3436]">Student Reviews & Feedback</h2>
+              
+              {feedback.length === 0 ? (
+                <div className="py-24 text-center space-y-4">
+                  <div className="w-20 h-20 bg-[#FDFBF7] rounded-full flex items-center justify-center mx-auto text-[#D9C5A0]">
+                    <MessageSquare size={32} />
+                  </div>
+                  <p className="text-[#2D3436]/40 italic">No feedback messages yet. Encourage students to leave ratings on lessons!</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {feedback.map((f: any) => (
+                    <div key={f.id} className="p-6 bg-[#FDFBF7] rounded-3xl border border-[#D9C5A0]/20 space-y-4 shadow-sm group hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-[#FFE8BE] rounded-xl flex items-center justify-center text-[#406AAF] font-bold text-sm">
+                            {(f.profiles?.username || f.profiles?.email || 'U')[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-bold text-[#2D3436]">{f.profiles?.username || f.profiles?.email}</p>
+                            <div className="flex text-amber-500 gap-0.5">
+                              {[...Array(5)].map((_, i) => (
+                                <Star key={i} size={10} fill={i < f.rating ? "currentColor" : "none"} strokeWidth={3} />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-[#2D3436]/30 font-bold flex items-center gap-1">
+                          <Clock size={10} />
+                          {new Date(f.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                      
+                      <p className="text-sm text-[#2D3436]/70 leading-relaxed italic border-l-2 border-[#D9C5A0]/30 pl-4">
+                        "{f.comment}"
+                      </p>
+
+                      {f.admin_reply ? (
+                        <div className="ml-8 p-4 bg-[#427AB5]/5 rounded-2xl border border-[#427AB5]/10 space-y-2">
+                          <div className="flex items-center gap-2 text-[10px] font-black text-[#427AB5] uppercase tracking-[0.2em]">
+                            <Reply size={12} className="rotate-180" />
+                            Admin Reply
+                          </div>
+                          <p className="text-xs text-[#2D3436]/80 leading-relaxed">{f.admin_reply}</p>
+                        </div>
+                      ) : (
+                        <div className="ml-8 space-y-3">
+                          <textarea 
+                            value={replyText[f.id] || ''}
+                            onChange={(e) => setReplyText(prev => ({ ...prev, [f.id]: e.target.value }))}
+                            placeholder="Type your response to this student..."
+                            className="w-full p-4 bg-white border border-[#D9C5A0]/20 rounded-2xl text-xs focus:ring-2 focus:ring-[#427AB5]/20 focus:outline-none placeholder:text-[#2D3436]/30 resize-none min-h-[80px]"
+                          />
+                          <button 
+                            onClick={() => handleReplyFeedback(f.id)}
+                            disabled={actionLoading === `reply-${f.id}`}
+                            className="px-6 py-2 bg-[#427AB5] text-white rounded-xl text-xs font-bold hover:bg-[#345F8F] disabled:opacity-50 flex items-center gap-2"
+                          >
+                            {actionLoading === `reply-${f.id}` ? <Loader2 size={14} className="animate-spin" /> : <Reply size={14} />}
+                            Send Reply
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -523,24 +725,17 @@ export default function AdminDashboard() {
 
           {/* Activity Column (Always visible) */}
           <aside className="lg:col-span-4 space-y-8">
-            <div className="bg-white border border-[#D9C5A0]/30 rounded-[32px] p-8 shadow-ambient space-y-6">
-              <h3 className="text-lg font-bold text-[#2D3436]">Insights</h3>
-              <div className="p-6 bg-blue-50 border border-blue-100/50 rounded-2xl space-y-2">
-                <p className="text-[10px] font-bold text-[#427AB5] uppercase tracking-widest">Platform Status</p>
-                <p className="text-xs text-[#406AAF] leading-relaxed">
-                  Platform is active. Any registered student can access modules immediately.
-                </p>
-              </div>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-[#2D3436]/50">Total Modules:</span>
-                  <span className="font-bold">{lessons.length}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-[#2D3436]/50">Total Students:</span>
-                  <span className="font-bold text-[#427AB5]">{allStudents.length}</span>
-                </div>
-              </div>
+            <div className="bg-[#1A1E21] rounded-[32px] p-8 text-white space-y-6 shadow-2xl relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-32 h-32 bg-[#427AB5]/20 blur-3xl" />
+               <h3 className="text-lg font-bold">Quick Actions</h3>
+               <div className="space-y-2">
+                  <button onClick={() => setActiveTab('lessons')} className="w-full text-left p-4 bg-white/5 rounded-2xl text-sm hover:bg-white/10 transition-colors flex items-center justify-between group">
+                    Add New Module <Plus size={16} className="group-hover:rotate-90 transition-transform" />
+                  </button>
+                  <button onClick={() => setActiveTab('feedback')} className="w-full text-left p-4 bg-white/5 rounded-2xl text-sm hover:bg-white/10 transition-colors flex items-center justify-between group">
+                    Review Feedback <MessageSquare size={16} />
+                  </button>
+               </div>
             </div>
           </aside>
         </section>

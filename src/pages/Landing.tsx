@@ -5,18 +5,15 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
 import { LessonTier, Lesson } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 export default function Landing() {
+  const { user } = useAuth();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Safety timeout
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 5000);
-
     const fetchLessons = async () => {
       try {
         const { data, error } = await supabase
@@ -37,12 +34,10 @@ export default function Landing() {
         }
       } finally {
         setLoading(false);
-        clearTimeout(timer);
       }
     };
 
     fetchLessons();
-    return () => clearTimeout(timer);
   }, []);
 
   const categories: { tier: LessonTier; label: string; description: string; color: string; icon: any }[] = [
@@ -130,23 +125,6 @@ export default function Landing() {
             From digital foundations to high-end CGI post-production. 
             Join the premier training ecosystem refined for tomorrow's visual innovators.
           </motion.p>
-          
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center pt-4"
-          >
-            <Link 
-              to="/auth" 
-              className="px-8 md:px-10 py-4 md:py-5 bg-primary-blue text-white rounded-xl font-bold text-base md:text-lg hover:bg-deep-blue transition-all shadow-xl shadow-blue-500/20 active:scale-95"
-            >
-              Start Your Journey
-            </Link>
-            <button className="px-8 md:px-10 py-4 md:py-5 border-2 border-[#D9C5A0]/30 text-[#2D3436] rounded-xl font-bold text-base md:text-lg hover:bg-[#FFE8BE]/20 transition-all font-display">
-              Browse Curriculum
-            </button>
-          </motion.div>
         </div>
       </section>
 
@@ -209,7 +187,7 @@ export default function Landing() {
               <h2 className="font-display text-3xl md:text-4xl font-bold text-[#2D3436]">Featured Modules</h2>
               <p className="text-sm md:text-base text-[#2D3436]/60">Hand-picked lessons to accelerate your creative workflow.</p>
             </div>
-            <Link to="/auth" className="flex items-center gap-2 text-sm font-bold text-[#427AB5] hover:gap-3 transition-all group">
+            <Link to={user ? "/progress" : "/auth"} className="flex items-center gap-2 text-sm font-bold text-[#427AB5] hover:gap-3 transition-all group">
               View All Modules <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>

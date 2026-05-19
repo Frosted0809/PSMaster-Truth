@@ -91,7 +91,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="max-w-md mx-auto py-12">
+    <div className="max-w-md mx-auto py-12 px-4 md:px-0">
       {showAdminToggle && (
         <div className="flex bg-[#FDFBF7] border border-[#D9C5A0]/30 p-1 rounded-2xl mb-8">
           <button

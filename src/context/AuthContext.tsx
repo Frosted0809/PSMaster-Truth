@@ -57,8 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error.code === 'PGRST116') {
           console.log('Profile missing, attempting to create...');
           const email = user?.email || '';
-          const isStudentLocal = email.endsWith('@student.local');
-          const username = isStudentLocal ? email.split('@')[0] : null;
+          const isStudentApp = email.endsWith('@student.app');
+          const username = isStudentApp ? email.split('@')[0] : null;
           
           // Super admin check
           const isSuperAdmin = email === 'hanselluis0809@gmail.com';
@@ -109,11 +109,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // Safety timeout to ensure app eventually renders
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 15000); 
-
     // Check active sessions and sets up listener
     const initAuth = async () => {
       try {
@@ -137,7 +132,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Auth initialization error:', err);
       } finally {
         setIsLoading(false);
-        clearTimeout(timer);
       }
     };
 
@@ -173,7 +167,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      clearTimeout(timer);
       subscription.unsubscribe();
     };
   }, []);

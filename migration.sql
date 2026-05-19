@@ -2,6 +2,26 @@
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS username TEXT UNIQUE;
 ALTER TABLE profiles ALTER COLUMN is_approved SET DEFAULT true;
 
+-- Ensure profile creation on signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, username, role)
+  VALUES (
+    new.id, 
+    new.email, 
+    new.raw_user_meta_data->>'username', 
+    COALESCE(new.raw_user_meta_data->>'auth_type', 'student')
+  );
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
 -- 2. ENABLE RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
@@ -25,6 +45,11 @@ CREATE POLICY "Users can update own profile"
 ON profiles FOR UPDATE 
 USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Everyone can view profiles" ON profiles;
+CREATE POLICY "Everyone can view profiles" 
+ON profiles FOR SELECT 
+USING (true);
+
 -- 5. UPDATE LESSONS TABLE FOR TEXT CONTENT
 -- Using text instead of varchar for content to allow long Markdown blocks
 ALTER TABLE lessons DROP COLUMN IF EXISTS video_url;
@@ -44,11 +69,37 @@ CREATE TABLE IF NOT EXISTS user_progress (
   UNIQUE(user_id, lesson_id)
 );
 
+-- Ensure column exists if table was created previously without it
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_progress' AND column_name='completed_at') THEN
+    ALTER TABLE user_progress ADD COLUMN completed_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL;
+  END IF;
+END $$;
+
 -- Enable RLS on user_progress
 ALTER TABLE user_progress ENABLE ROW LEVEL SECURITY;
 
 -- Policies for user_progress
 DROP POLICY IF EXISTS "Users can view their own progress" ON user_progress;
+DROP POLICY IF EXISTS "Admins can view all progress" ON user_progress;
+DROP POLICY IF EXISTS "Public can view progress" ON user_progress;
+DROP POLICY IF EXISTS "Super admin view progress" ON user_progress;
+
+CREATE POLICY "Super admin view progress" 
+ON user_progress FOR SELECT 
+USING (auth.jwt() ->> 'email' = 'hanselluis0809@gmail.com');
+
+CREATE POLICY "Admins can view all progress" 
+ON user_progress FOR SELECT 
+USING (
+  EXISTS (
+    SELECT 1 FROM profiles 
+    WHERE profiles.id = auth.uid() 
+    AND profiles.role = 'admin'
+  )
+);
+
 CREATE POLICY "Users can view their own progress" 
 ON user_progress FOR SELECT 
 USING (auth.uid() = user_id);
@@ -57,6 +108,11 @@ DROP POLICY IF EXISTS "Users can record their own progress" ON user_progress;
 CREATE POLICY "Users can record their own progress" 
 ON user_progress FOR INSERT 
 WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own progress" ON user_progress;
+CREATE POLICY "Users can update their own progress" 
+ON user_progress FOR UPDATE 
+USING (auth.uid() = user_id);
 
 -- 8. REPLACE LESSONS WITH REQUESTED BEGINNER SET
 DELETE FROM lessons;
@@ -102,5 +158,60 @@ VALUES
   'Beginner', 
   5, 
   '["Select the Quick Selection Tool (W)","Paint over the area you want to select; it will automatically snap to edges","Click ''Select Subject'' in the top options bar for an AI-powered cutout","Click the Layer Mask icon to hide the background non-destructively"]'::jsonb
+);
+
+-- Enable RLS on lessons
+ALTER TABLE lessons ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can view lessons" ON lessons;
+CREATE POLICY "Anyone can view lessons" 
+ON lessons FOR SELECT 
+USING (true);
+
+DROP POLICY IF EXISTS "Admins can manage lessons" ON lessons;
+CREATE POLICY "Admins can manage lessons" 
+ON lessons FOR ALL 
+USING (
+  EXISTS (
+    SELECT 1 FROM profiles 
+    WHERE profiles.id = auth.uid() 
+    AND profiles.role = 'admin'
+  )
+);
+
+-- 9. CREATE FEEDBACK TABLE
+CREATE TABLE IF NOT EXISTS feedback (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  lesson_id UUID REFERENCES lessons(id) ON DELETE CASCADE NOT NULL,
+  rating INTEGER CHECK (rating >= 1 AND rating <= 5) NOT NULL,
+  comment TEXT NOT NULL,
+  admin_reply TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Enable RLS on feedback
+ALTER TABLE feedback ENABLE ROW LEVEL SECURITY;
+
+-- Policies for feedback
+DROP POLICY IF EXISTS "Anyone can view feedback" ON feedback;
+CREATE POLICY "Anyone can view feedback" 
+ON feedback FOR SELECT 
+USING (true);
+
+DROP POLICY IF EXISTS "Students can insert feedback" ON feedback;
+CREATE POLICY "Students can insert feedback" 
+ON feedback FOR INSERT 
+WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admins can update feedback" ON feedback;
+CREATE POLICY "Admins can update feedback" 
+ON feedback FOR UPDATE 
+USING (
+  EXISTS (
+    SELECT 1 FROM profiles 
+    WHERE profiles.id = auth.uid() 
+    AND profiles.role = 'admin'
+  )
 );
 
