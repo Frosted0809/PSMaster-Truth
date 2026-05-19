@@ -9,6 +9,7 @@ export interface Lesson {
   order_index?: number;
   created_at?: string;
   thumbnail_url?: string;
+  video_url?: string;
   steps?: string[];
 }
 

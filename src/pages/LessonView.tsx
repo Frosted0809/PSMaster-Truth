@@ -230,6 +230,24 @@ export default function LessonView() {
           </header>
 
           <article className="bg-white border border-[#D9C5A0]/30 rounded-[32px] md:rounded-[40px] p-6 md:p-12 shadow-ambient overflow-hidden min-w-0">
+            {lesson.video_url && (
+              <div className="mb-12">
+                <h2 className="text-xs font-black uppercase text-amber-600 tracking-[0.2em] mb-6 flex items-center gap-2">
+                  <span className="w-8 h-px bg-amber-600/30"></span>
+                  Video Tutorial
+                </h2>
+                <div className="aspect-video w-full rounded-[32px] overflow-hidden border border-[#D9C5A0]/30 bg-black shadow-2xl">
+                  <video 
+                    src={lesson.video_url} 
+                    controls 
+                    className="w-full h-full object-contain"
+                    poster={lesson.thumbnail_url}
+                  />
+                </div>
+                <hr className="mt-12 border-[#D9C5A0]/20" />
+              </div>
+            )}
+
             {lesson.steps && lesson.steps.length > 0 && (
               <div className="mb-12">
                 <h2 className="text-xs font-black uppercase text-[#427AB5] tracking-[0.2em] mb-6 flex items-center gap-2">

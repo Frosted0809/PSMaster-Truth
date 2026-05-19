@@ -60,7 +60,9 @@ ALTER TABLE lessons ADD COLUMN IF NOT EXISTS steps JSONB DEFAULT '[]'::jsonb;
 
 -- 7. STORAGE (Manual Setup Required in Supabase Dashboard)
 -- Go to Storage -> Create New Bucket -> Name it "thumbnails" -> Make it PUBLIC.
+-- Go to Storage -> Create New Bucket -> Name it "videos" -> Make it PUBLIC.
 -- This is necessary for the local file upload feature to work.
+ALTER TABLE lessons ADD COLUMN IF NOT EXISTS video_url TEXT;
 CREATE TABLE IF NOT EXISTS user_progress (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,

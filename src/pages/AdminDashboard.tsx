@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, BookOpen, Plus, Shield, MoreVertical, Check, X, Trash2, AlertCircle, Loader2, User as UserIcon, Upload, Layout, Star, MessageSquare, Reply, Clock } from 'lucide-react';
+import { Users, BookOpen, Plus, Shield, MoreVertical, Check, X, Trash2, AlertCircle, Loader2, User as UserIcon, Upload, Layout, Star, MessageSquare, Reply, Clock, Video } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
@@ -40,11 +40,13 @@ export default function AdminDashboard() {
     tier: 'Beginner' as any,
     description: '',
     thumbnail_url: '',
+    video_url: '',
     steps: [] as string[]
   });
 
   const [newStep, setNewStep] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [videoUploading, setVideoUploading] = useState(false);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -72,6 +74,35 @@ export default function AdminDashboard() {
       alert('Error uploading image. Please ensure you have created a "thumbnails" bucket in Supabase Storage and set it to public.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setVideoUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `lesson-videos/${fileName}`;
+
+      const { data, error: uploadError } = await supabase.storage
+        .from('videos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('videos')
+        .getPublicUrl(filePath);
+
+      setNewLesson(prev => ({ ...prev, video_url: publicUrl }));
+    } catch (err) {
+      console.error('Error uploading video:', err);
+      alert('Error uploading video. Please ensure you have created a "videos" bucket in Supabase Storage and set it to public.');
+    } finally {
+      setVideoUploading(false);
     }
   };
 
@@ -205,6 +236,7 @@ export default function AdminDashboard() {
         tier: 'Beginner', 
         description: '',
         thumbnail_url: '',
+        video_url: '',
         steps: []
       });
       setIsEditing(null);
@@ -224,6 +256,7 @@ export default function AdminDashboard() {
       tier: lesson.tier,
       description: lesson.description || '',
       thumbnail_url: lesson.thumbnail_url || '',
+      video_url: lesson.video_url || '',
       steps: lesson.steps || []
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -237,6 +270,7 @@ export default function AdminDashboard() {
       tier: 'Beginner', 
       description: '',
       thumbnail_url: '',
+      video_url: '',
       steps: []
     });
   };
@@ -594,6 +628,56 @@ export default function AdminDashboard() {
                                   </div>
                                   <p className="text-sm font-bold text-[#2D3436]">Click to upload module cover</p>
                                   <p className="text-[10px] text-[#2D3436]/40 uppercase tracking-widest mt-1">Direct from your device</p>
+                                </>
+                              )}
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <label className="text-xs font-bold text-[#2D3436] uppercase tracking-widest pl-1">Module Video (Lesson MP4/Recordings)</label>
+                        <div className="flex flex-col gap-4">
+                          {newLesson.video_url && (
+                             <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-[#D9C5A0]/30 bg-black">
+                               <video src={newLesson.video_url} controls className="w-full h-full" />
+                               <button 
+                                 type="button"
+                                 onClick={() => setNewLesson({...newLesson, video_url: ''})}
+                                 className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors z-10"
+                               >
+                                 <X size={16} />
+                               </button>
+                             </div>
+                          )}
+                          <div className="relative">
+                            <input 
+                              type="file" 
+                              accept="video/*"
+                              onChange={handleVideoUpload}
+                              disabled={videoUploading}
+                              className="hidden"
+                              id="video-upload"
+                            />
+                            <label 
+                              htmlFor="video-upload"
+                              className={cn(
+                                "flex flex-col items-center justify-center w-full min-h-[120px] px-4 py-8 bg-[#FDFBF7] border-2 border-dashed border-[#D9C5A0]/40 rounded-[32px] cursor-pointer hover:border-primary-blue/40 transition-all group",
+                                videoUploading && "opacity-50 cursor-not-allowed"
+                              )}
+                            >
+                              {videoUploading ? (
+                                <div className="flex items-center justify-center gap-3">
+                                  <Loader2 className="animate-spin text-primary-blue" />
+                                  <span className="text-sm font-bold text-[#2D3436]/50">Uploading video...</span>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 mb-3 group-hover:scale-110 transition-transform">
+                                    <Video size={24} />
+                                  </div>
+                                  <p className="text-sm font-bold text-[#2D3436]">Click to upload module video</p>
+                                  <p className="text-[10px] text-[#2D3436]/40 uppercase tracking-widest mt-1">MP4, MOV supported</p>
                                 </>
                               )}
                             </label>
