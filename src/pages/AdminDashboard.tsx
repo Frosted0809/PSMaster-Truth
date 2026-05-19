@@ -400,9 +400,6 @@ export default function AdminDashboard() {
                           </div>
                           <div>
                             <p className="font-bold text-[#2D3436]">{u.username || u.email}</p>
-                            <p className="text-[10px] text-[#2D3436]/40 uppercase font-bold tracking-widest">
-                              Joined {new Date(u.created_at).toLocaleDateString()}
-                            </p>
                           </div>
                         </div>
                         <div className="text-right">
