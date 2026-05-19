@@ -59,9 +59,36 @@ ALTER TABLE lessons ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;
 ALTER TABLE lessons ADD COLUMN IF NOT EXISTS steps JSONB DEFAULT '[]'::jsonb;
 
 -- 7. STORAGE (Manual Setup Required in Supabase Dashboard)
--- Go to Storage -> Create New Bucket -> Name it "thumbnails" -> Make it PUBLIC.
--- Go to Storage -> Create New Bucket -> Name it "videos" -> Make it PUBLIC.
--- This is necessary for the local file upload feature to work.
+-- These buckets must be created and set to PUBLIC in the Supabase Dashboard.
+-- Alternatively, the following SQL will ensure they exist and have correct policies.
+
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('thumbnails', 'thumbnails', true), ('videos', 'videos', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Policies for "thumbnails" bucket
+DROP POLICY IF EXISTS "Public View Thumbnails" ON storage.objects;
+CREATE POLICY "Public View Thumbnails" ON storage.objects FOR SELECT USING (bucket_id = 'thumbnails');
+
+DROP POLICY IF EXISTS "Admins Manage Thumbnails" ON storage.objects;
+CREATE POLICY "Admins Manage Thumbnails" ON storage.objects FOR ALL 
+USING (
+  bucket_id = 'thumbnails' AND
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+);
+
+-- Policies for "videos" bucket
+DROP POLICY IF EXISTS "Public View Videos" ON storage.objects;
+CREATE POLICY "Public View Videos" ON storage.objects FOR SELECT USING (bucket_id = 'videos');
+
+DROP POLICY IF EXISTS "Admins Manage Videos" ON storage.objects;
+CREATE POLICY "Admins Manage Videos" ON storage.objects FOR ALL 
+USING (
+  bucket_id = 'videos' AND
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+);
+
+-- Note: Ensure "thumbnails" and "videos" buckets exist and are public.
 ALTER TABLE lessons ADD COLUMN IF NOT EXISTS video_url TEXT;
 CREATE TABLE IF NOT EXISTS user_progress (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
