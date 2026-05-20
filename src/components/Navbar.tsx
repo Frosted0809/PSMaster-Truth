@@ -1,12 +1,14 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Shield, LayoutDashboard, Home, BookOpen, LogOut, Menu, X, ArrowRight } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
+import { Shield, LayoutDashboard, Home, BookOpen, LogOut, Menu, X, ArrowRight, Sun, Moon } from 'lucide-react';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
 export default function Navbar() {
   const { user, profile, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -59,6 +61,25 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Theme Toggle Button */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-xl bg-[#FFE8BE]/20 hover:bg-[#FFE8BE]/40 dark:bg-white/5 dark:hover:bg-white/10 text-[#406AAF] dark:text-amber-400 border border-[#D9C5A0]/20 dark:border-white/10 transition-all flex items-center justify-center cursor-pointer shadow-sm"
+              title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+            >
+              <motion.div
+                initial={false}
+                animate={{ rotate: theme === 'dark' ? 180 : 0, scale: [0.9, 1.1, 1] }}
+                transition={{ duration: 0.3 }}
+              >
+                {theme === 'dark' ? (
+                  <Sun size={18} className="text-amber-400" />
+                ) : (
+                  <Moon size={18} className="text-[#406AAF]" />
+                )}
+              </motion.div>
+            </button>
+
             {user ? (
               <div className="flex items-center gap-4">
                 {profile && (
@@ -114,6 +135,20 @@ export default function Navbar() {
                   {link.name}
                 </Link>
               ))}
+              
+              <button
+                onClick={() => toggleTheme()}
+                className="flex items-center justify-between text-lg font-medium p-2 rounded-lg text-[#2D3436] hover:bg-[#FFE8BE]/30 dark:hover:bg-white/5 transition-colors w-full text-left"
+              >
+                <div className="flex items-center gap-3 font-medium">
+                  {theme === 'dark' ? (
+                    <Sun size={20} className="text-amber-400" />
+                  ) : (
+                    <Moon size={20} className="text-[#406AAF]" />
+                  )}
+                  <span>{theme === 'light' ? 'Switch to Dark Theme' : 'Switch to Light Theme'}</span>
+                </div>
+              </button>
               
               {user ? (
                 <button

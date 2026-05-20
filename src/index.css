@@ -7,52 +7,94 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
+/* Theme color definitions */
+:root {
+  --bg-page: #FDFBF7;
+  --bg-card: #ffffff;
+  --bg-subtle: #FDFBF7;
+  --text-primary: #2D3436;
+  --text-muted: rgba(45, 52, 54, 0.6);
+  --border-color-30: rgba(217, 197, 160, 0.3);
+  --border-color-20: rgba(217, 197, 160, 0.2);
+  --cream-bg: #FFE8BE;
+  --primary-blue: #427AB5;
+  --deep-blue: #406AAF;
+  --shadow-ambient: 0px 4px 20px rgba(66, 122, 181, 0.08);
+}
+
+html.dark {
+  --bg-page: #0E1113;
+  --bg-card: #15191C;
+  --bg-subtle: #1B1E21;
+  --text-primary: #ECEFF1;
+  --text-muted: rgba(236, 239, 241, 0.6);
+  --border-color-30: rgba(217, 197, 160, 0.15);
+  --border-color-20: rgba(217, 197, 160, 0.1);
+  --cream-bg: #2B2419;
+  --primary-blue: #5C9FE6;
+  --deep-blue: #7FB0EB;
+  --shadow-ambient: 0px 8px 30px rgba(0, 0, 0, 0.5);
+}
+
 @layer base {
   body {
-    @apply bg-[#FDFBF7] text-[#2D3436] font-sans antialiased;
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    @apply antialiased;
+  }
+  
+  body, nav, div, header, aside, section, article, p, h1, h2, h3, h4, h5, h6, select, input, textarea, button {
+    transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
 .cream-bg {
-  background-color: #FFE8BE;
+  background-color: var(--cream-bg);
 }
 
 .primary-blue {
-  color: #427AB5;
+  color: var(--primary-blue);
 }
 
 .bg-primary-blue {
-  background-color: #427AB5;
+  background-color: var(--primary-blue);
 }
 
 .deep-blue {
-  color: #406AAF;
+  color: var(--deep-blue);
 }
 
 .bg-deep-blue {
-  background-color: #406AAF;
+  background-color: var(--deep-blue);
 }
 
 /* Custom ambient shadow */
 .shadow-ambient {
-  box-shadow: 0px 4px 20px rgba(66, 122, 181, 0.08);
+  box-shadow: var(--shadow-ambient);
 }
 
 /* Custom Lesson Styles (Markdown) */
 .markdown-body {
-  @apply text-[#2D3436]/90 leading-relaxed break-words;
+  color: var(--text-primary);
+  opacity: 0.95;
+  @apply leading-relaxed break-words;
 }
 
 .markdown-body h1 {
-  @apply font-display text-4xl font-bold mb-8 pt-4 text-[#2D3436];
+  color: var(--text-primary);
+  @apply font-display text-4xl font-bold mb-8 pt-4;
 }
 
 .markdown-body h2 {
-  @apply font-display text-2xl font-bold mt-12 mb-6 text-[#2D3436] border-b border-[#D9C5A0]/20 pb-2;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color-20);
+  @apply font-display text-2xl font-bold mt-12 mb-6 pb-2;
 }
 
 .markdown-body h3 {
-  @apply font-sans text-lg font-bold mt-8 mb-4 text-[#2D3436] uppercase tracking-widest;
+  color: var(--text-primary);
+  @apply font-sans text-lg font-bold mt-8 mb-4 uppercase tracking-widest;
 }
 
 .markdown-body p {
@@ -64,12 +106,20 @@
 }
 
 .markdown-body li {
-  @apply list-disc marker:text-[#427AB5];
+  @apply list-disc;
+  marker-color: var(--primary-blue);
 }
 
 /* Quote blocks as "Key Insights" */
 .markdown-body blockquote {
-  @apply border-l-4 border-[#427AB5] bg-blue-50/50 p-8 my-10 rounded-r-3xl italic font-medium text-[#406AAF] shadow-sm;
+  border-left: 4px solid var(--primary-blue);
+  background-color: rgba(66, 122, 181, 0.08);
+  color: var(--deep-blue);
+  @apply p-8 my-10 rounded-r-3xl italic font-medium shadow-sm;
+}
+
+html.dark .markdown-body blockquote {
+  background-color: rgba(107, 160, 230, 0.06);
 }
 
 .markdown-body blockquote p {
@@ -78,20 +128,154 @@
 
 /* Horizontal lines as dividers */
 .markdown-body hr {
-  @apply border-[#D9C5A0]/20 my-12;
+  border-color: var(--border-color-20);
+  @apply my-12;
 }
 
 /* Strong text styling */
 .markdown-body strong {
-  @apply font-bold text-[#2D3436];
+  color: var(--text-primary);
+  @apply font-bold;
 }
 
 /* Code blocks for technical examples */
 .markdown-body pre {
-  @apply bg-[#FDFBF7] border border-[#D9C5A0]/30 rounded-2xl p-6 my-8 overflow-x-auto font-mono text-sm leading-relaxed;
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-color-30);
+  @apply rounded-2xl p-6 my-8 overflow-x-auto font-mono text-sm leading-relaxed;
 }
 
 .markdown-body code:not(pre code) {
-  @apply bg-[#FFE8BE]/30 text-[#406AAF] px-1.5 py-0.5 rounded font-mono text-sm;
+  background-color: var(--cream-bg);
+  color: var(--deep-blue);
+  @apply px-1.5 py-0.5 rounded font-mono text-sm;
 }
 
+/* Universal selector overrides for standard inline elements when dark mode is active */
+html.dark .bg-white {
+  background-color: var(--bg-card) !important;
+}
+
+html.dark .bg-\[\#FDFBF7\] {
+  background-color: var(--bg-subtle) !important;
+}
+
+html.dark .bg-\[\#FFE8BE\] {
+  background-color: var(--cream-bg) !important;
+}
+
+html.dark .bg-\[\#FFE8BE\]\/10 {
+  background-color: rgba(43, 37, 25, 0.4) !important;
+}
+
+html.dark .bg-\[\#FFE8BE\]\/30 {
+  background-color: rgba(43, 37, 25, 0.6) !important;
+}
+
+html.dark .bg-\[\#FFE8BE\]\/50 {
+  background-color: rgba(43, 37, 25, 0.8) !important;
+}
+
+html.dark .text-\[\#2D3436\] {
+  color: var(--text-primary) !important;
+}
+
+html.dark .text-\[\#2D3436\]\/30 {
+  color: rgba(236, 239, 241, 0.3) !important;
+}
+
+html.dark .text-\[\#2D3436\]\/40 {
+  color: rgba(236, 239, 241, 0.4) !important;
+}
+
+html.dark .text-\[\#2D3436\]\/50 {
+  color: rgba(236, 239, 241, 0.5) !important;
+}
+
+html.dark .text-\[\#2D3436\]\/60 {
+  color: rgba(236, 239, 241, 0.6) !important;
+}
+
+html.dark .text-\[\#2D3436\]\/70 {
+  color: rgba(236, 239, 241, 0.7) !important;
+}
+
+html.dark .text-\[\#2D3436\]\/80 {
+  color: rgba(236, 239, 241, 0.8) !important;
+}
+
+html.dark .text-\[\#2D3436\]\/90 {
+  color: rgba(236, 239, 241, 0.9) !important;
+}
+
+html.dark .border-\[\#D9C5A0\]\/10 {
+  border-color: rgba(217, 197, 160, 0.1) !important;
+}
+
+html.dark .border-\[\#D9C5A0\]\/20 {
+  border-color: rgba(217, 197, 160, 0.15) !important;
+}
+
+html.dark .border-\[\#D9C5A0\]\/30 {
+  border-color: rgba(217, 197, 160, 0.22) !important;
+}
+
+html.dark .border-\[\#D9C5A0\]\/40 {
+  border-color: rgba(217, 197, 160, 0.28) !important;
+}
+
+html.dark .text-\[\#427AB5\] {
+  color: var(--primary-blue) !important;
+}
+
+html.dark .text-\[\#406AAF\] {
+  color: var(--deep-blue) !important;
+}
+
+html.dark .bg-\[\#427AB5\] {
+  background-color: #3B74B0 !important;
+}
+
+html.dark .bg-\[\#427AB5\]\/5 {
+  background-color: rgba(107, 159, 230, 0.06) !important;
+}
+
+html.dark .bg-\[\#427AB5\]\/10 {
+  background-color: rgba(107, 159, 230, 0.1) !important;
+}
+
+html.dark .bg-blue-50 {
+  background-color: #192433 !important;
+}
+
+html.dark .border-blue-100\/50 {
+  border-color: rgba(107, 159, 230, 0.15) !important;
+}
+
+html.dark .text-\[\#406AAF\]\/70 {
+  color: rgba(127, 176, 235, 0.7) !important;
+}
+
+html.dark .bg-white\/80 {
+  background-color: rgba(21, 25, 28, 0.82) !important;
+}
+
+html.dark .bg-amber-500\/10 {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+}
+
+html.dark .text-amber-500 {
+  color: #fbbf24 !important;
+}
+
+html.dark .italic {
+  color: var(--text-muted) !important;
+}
+
+html.dark .bg-[#FDFBF7] {
+  background-color: var(--bg-subtle) !important;
+}
+
+html.dark .bg-[#FFE8BE]/50 {
+  background-color: rgba(43, 37, 25, 0.8) !important;
+}
